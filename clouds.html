@@ -2199,6 +2199,8 @@
     if (k >= 0) keyHeld.delete(k);
   });
   window.addEventListener('blur', () => keyHeld.clear());
+  // a dropdown lets go of the keyboard once you've chosen, so the keys reach the sky at once (keys mode, space, e…)
+  document.querySelectorAll('header select, header input[type=checkbox]').forEach(el => el.addEventListener('change', () => el.blur()));
   window.addEventListener('keydown', e => {
     if (['INPUT', 'SELECT'].includes(e.target.tagName)) return;
     if (playMode() === 'keys') {
