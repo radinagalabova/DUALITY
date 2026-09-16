@@ -311,9 +311,9 @@
   <span class="tip">your own ElevenLabs key: <b>regen</b> gives the angels new voices, <b>recompose</b> a new organ track · stays in this browser</span>
   <label>music
     <select id="music">
-      <option value="eleven">elevenlabs</option>
-      <option value="synth">synth organ</option>
       <option value="off">off</option>
+      <option value="synth">synth organ</option>
+      <option value="eleven">elevenlabs</option>
     </select>
     <input type="range" id="musicVol" min="0" max="100" step="1" value="65">
   </label>
@@ -1422,7 +1422,7 @@
     if (!audio.on) return;
     await loadPiece();
     if (playMode() !== 'piece') return;
-    stopMusic(); musStatus('♫ the piece');
+    startMusic(false);   // '♫ the piece' when music is off; otherwise the organ plays quietly underneath
     if (!piece.engine) {
       piece.engine = new Acapella.Engine({
         ctx: audio.ctx, seed: +$('pieceSeed').value || 1, bpm: () => bpm,
@@ -1768,6 +1768,10 @@
     music.gain.gain.value = (+$('musicVol').value / 100) ** 1.5;
     return music.gain;
   }
+  function bedGain() {   // the organ's level when it plays under the piece
+    if (!music.bed) { music.bed = ensureCtx().createGain(); music.bed.gain.value = 0.38; music.bed.connect(musicGain()); }
+    return music.bed;
+  }
   function stopMusic() {
     if (music.src) { try { music.src.stop(); } catch {} music.src = null; }
     if (music.synth) { music.synth.stop(); music.synth = null; }
@@ -1784,11 +1788,11 @@
   }
   async function startMusic(force) {
     stopMusic();
-    const mode = $('music').value;
-    if (playMode() === 'piece' && audio.on) { musStatus('♫ the piece'); return; }
-    if (mode === 'off' || !audio.on) { musStatus('♫ off'); return; }
-    const ctx = ensureCtx(), out = musicGain();
-    if (mode === 'synth') { music.synth = synthOrgan(out); musStatus('♫ synth organ'); return; }
+    const mode = $('music').value, underPiece = playMode() === 'piece';
+    if (mode === 'off' || !audio.on) { musStatus(underPiece && audio.on ? '♫ the piece' : '♫ off'); return; }
+    // under the piece the organ is a bed: a quiet layer beneath the trio and its instruments
+    const ctx = ensureCtx(), out = underPiece ? bedGain() : musicGain(), under = underPiece ? ' under the piece' : '';
+    if (mode === 'synth') { music.synth = synthOrgan(out); musStatus('♫ synth organ' + under); return; }
     if (music.busy) return;
     music.busy = true;
     try {
@@ -1796,7 +1800,7 @@
       if (!force && !music.buffer) { try { const c = localStorage.getItem(MUSIC_KEY); if (c) raw = unb64(c); } catch {} }
       if (force || (!music.buffer && !raw)) {
         const key = $('xiKey').value.trim();
-        if (!key) { music.synth = synthOrgan(out); musStatus('♫ synth organ (no elevenlabs key)'); return; }
+        if (!key) { music.synth = synthOrgan(out); musStatus('♫ synth organ (no elevenlabs key)' + under); return; }
         // organ in the meantime, so the wait isn't silent
         music.synth = synthOrgan(out);
         raw = await fetchMusic(key);
@@ -1809,7 +1813,7 @@
       const src = ctx.createBufferSource(); src.buffer = music.buffer; src.loop = true;
       src.connect(out); src.start();
       music.src = src;
-      musStatus(`♫ elevenlabs (${Math.round(music.buffer.duration)}s loop)`);
+      musStatus(`♫ elevenlabs (${Math.round(music.buffer.duration)}s loop)` + under);
     } catch (e) {
       if (!music.synth) music.synth = synthOrgan(out);
       musStatus(`♫ synth organ · elevenlabs failed: ${e.message}`);
@@ -1883,9 +1887,14 @@
       }
     };
   }
-  $('music').onchange = () => startMusic(false);
+  $('music').onchange = () => { music.chosen = true; startMusic(false); };
+  // leaving the piece for a hand-played mode: unless you chose otherwise, the organ is their backdrop
+  const musicForMode = () => { if (!music.chosen) $('music').value = playMode() === 'piece' ? 'off' : 'eleven'; };
   $('musicVol').oninput = () => { if (music.gain) musicGain(); };
-  $('remusicBtn').onclick = async () => { if (!audio.on) await setSound(true); $('music').value = 'eleven'; startMusic(true); };
+  $('remusicBtn').onclick = async () => {
+    if (!$('xiKey').value.trim()) { musStatus('♫ paste an elevenlabs key in the box to compose a new track'); return; }
+    if (!audio.on) await setSound(true); $('music').value = 'eleven'; startMusic(true);
+  };
 
   async function setSound(on) {
     audio.on = on;
@@ -1893,6 +1902,7 @@
     $('soundBtn').classList.toggle('on', on);
     if (!on) { sndStatus('♪ muted'); stopMusic(); stopPiece(); musStatus('♫ off'); return; }
     const ctx = ensureCtx(); await ctx.resume();
+    musicForMode();
     startMusic(false);
     if (playMode() === 'piece') startPiece();
     const names = stylesInUse();
@@ -1987,6 +1997,7 @@
     phases = []; keyHeld.clear(); updateHint();
     if (playMode() === 'voice') { if (!audio.on) await setSound(true); if (!(await startMic())) $('play').value = 'mouse'; }
     else stopMic();
+    musicForMode();
     if (playMode() === 'piece') { if (!audio.on) await setSound(true); else startPiece(); }
     else { stopPiece(); if (audio.on) startMusic(false); }
     if (!isConduct() && $('auto').checked) cue();
