@@ -506,7 +506,7 @@
     camera = new THREE.PerspectiveCamera(FOV, 1, 1, 3000);
     camera.position.z = 6000;
     // in the world the sky is a band above the forest: look slightly up so the deck takes less of it
-    { const q = new URLSearchParams(location.search); camera.rotation.x = q.has('embed') ? 0.11 : q.has('clean') ? 0.03 : 0.05; }
+    { const q = new URLSearchParams(location.search); camera.rotation.x = q.has('embed') ? 0.11 : q.has('clean') ? 0.09 : 0.05; }   // clean: 0.09 with the toolbar closed, 0.03 open (see the ≡ toggle)
     scene = new THREE.Scene();
 
     cloudMat = new THREE.ShaderMaterial({
@@ -2256,7 +2256,8 @@
       window.addEventListener('pointerdown', () => h.classList.add('gone'), { once: true, capture: true });
       // ≡ (or the i key) shows and hides the toolbar, like the panel in symbiosis.html
       const b = document.createElement('button'); b.id = 'cleanBtn'; b.textContent = '≡'; b.title = 'sound board (i)';
-      const toggle = () => document.body.classList.toggle('embed');
+      // the toolbar takes the top of the window: tilt down a little while it's open so the choir stays where it was
+      const toggle = () => { const open = document.body.classList.toggle('embed') === false; if (camera) camera.rotation.x = open ? 0.03 : 0.09; };
       b.onclick = toggle; main.appendChild(b);
       const l = document.createElement('span'); l.className = 'menuLabel'; l.textContent = '‹ sound board'; l.onclick = toggle; main.appendChild(l);
       window.addEventListener('keydown', e => { if (e.key === 'i' && !e.metaKey && !e.ctrlKey && e.target.tagName !== 'INPUT') toggle(); });
