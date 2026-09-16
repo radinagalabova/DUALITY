@@ -1704,11 +1704,12 @@
       link.es.onopen = () => lnkStatus(`⟷ ${link.room} · listening`);
       $('linkBtn').textContent = 'disconnect';
       link.timer = setInterval(() => { if (asset) linkSend(ourState()); }, 400);
-      try { localStorage.setItem('duality-link', JSON.stringify({ url: link.url, room: link.room })); } catch {}
+      // remember a link you typed — not the one world.html hands us in the query string (a local bus in a one-off room)
+      if (!new URLSearchParams(location.search).has('room')) { try { localStorage.setItem('duality-link', JSON.stringify({ url: link.url, room: link.room })); } catch {} }
     } catch (e) { lnkStatus(`⟷ failed: ${e.message}`); link.es = null; }
   }
   $('linkBtn').onclick = linkConnect;
-  try { const saved = JSON.parse(localStorage.getItem('duality-link') || 'null'); if (saved) { $('linkUrl').value = saved.url; $('linkRoom').value = saved.room; } } catch {}
+  try { const saved = JSON.parse(localStorage.getItem('duality-link') || 'null'); if (saved && saved.url !== 'local') { $('linkUrl').value = saved.url; $('linkRoom').value = saved.room; } else if (saved) localStorage.removeItem('duality-link'); } catch {}
   if (!$('linkUrl').value) $('linkUrl').value = location.protocol.startsWith('http') ? `${location.origin}/bus` : 'http://localhost:8765/bus';
 
   /* ---- backdrop: gothic lofi organ, from the ElevenLabs music API or a synth organ ---- */
