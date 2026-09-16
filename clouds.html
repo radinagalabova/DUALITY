@@ -2020,33 +2020,42 @@
     paintHearts(); musStatus(`♫ track “${e.name}”`);
   };
   paintHearts();
-  // saved boards: every dial on the toolbar under a name, kept in this browser (the key and the link are not part of a board)
-  const BOARDS = 'duality-boards';
+  // saved boards: everything — every dial on the toolbar, plus the elevenlabs voices and the organ track playing right now —
+  // under a name, in this browser's database (the key and the link are not part of a board)
   const BOARD_IDS = ['play', 'style', 'voice', 'music', 'musicVol', 'bpm', 'choirN', 'routine', 'sky', 'lead', 'pieceSeed', 'instEp', 'instToy', 'instTape', 'halo', 'parallax', 'auto'];
-  const boards = () => { try { return JSON.parse(localStorage.getItem(BOARDS) || '[]'); } catch { return []; } };
-  function paintBoards() {
-    const list = boards(), sel = $('boards');
-    sel.innerHTML = '<option value="">boards…</option>' + list.map((b, i) => `<option value="${i}">${b.name}</option>`).join('') + (list.length ? '<option value="forget">forget one…</option>' : '');
+  const rawOf = k => { try { const c = localStorage.getItem(k); return c ? JSON.parse(c) : null; } catch { return null; } };
+  async function paintBoards() {
+    const list = (await store.all()).filter(e => e.kind === 'board').sort((a, b) => b.id - a.id), sel = $('boards');
+    sel.innerHTML = '<option value="">boards…</option>' + list.map(b => `<option value="${b.id}">${b.name}</option>`).join('') + (list.length ? '<option value="forget">forget one…</option>' : '');
   }
-  $('saveBoardBtn').onclick = () => {
-    const name = (prompt('name this sound board', `board ${boards().length + 1}`) || '').trim(); if (!name) return;
+  $('saveBoardBtn').onclick = async () => {
+    const name = (prompt('name this sound board', `board ${stamp()}`) || '').trim(); if (!name) return;
     const settings = {}; for (const id of BOARD_IDS) { const el = $(id); if (el) settings[id] = el.type === 'checkbox' ? el.checked : el.value; }
-    const list = boards().filter(b => b.name !== name); list.unshift({ name, settings });
-    try { localStorage.setItem(BOARDS, JSON.stringify(list.slice(0, 30))); } catch {}
-    paintBoards(); sndStatus(`♪ saved board “${name}”`);
+    // the sound itself: every elevenlabs voice set in the cache, and the organ track
+    const voices = {}; for (const [n, st] of Object.entries(STYLES)) { const c = rawOf(st.cache); if (c) voices[n] = c.map(unb64); }
+    let track = null; try { const c = localStorage.getItem(MUSIC_KEY); if (c) track = unb64(c); } catch {}
+    const old = (await store.all()).find(e => e.kind === 'board' && e.name === name); if (old) await store.del(old.id);
+    await store.put({ id: Date.now(), kind: 'board', name, when: stamp(), settings, voices, track });
+    paintBoards(); sndStatus(`♪ saved board “${name}” · dials${Object.keys(voices).length ? ' + voices' : ''}${track ? ' + track' : ''}`);
   };
-  $('boards').onchange = () => {
+  $('boards').onchange = async () => {
     const v = $('boards').value; $('boards').value = '';
-    if (v === 'forget') { const list = boards(), which = prompt('forget which board?\n' + list.map(b => '· ' + b.name).join('\n')); if (which) { try { localStorage.setItem(BOARDS, JSON.stringify(list.filter(b => b.name !== which.trim()))); } catch {} paintBoards(); } return; }
-    if (v === '') return;
-    const b = boards()[+v]; if (!b) return;
+    const all = (await store.all()).filter(e => e.kind === 'board');
+    if (v === 'forget') { const which = prompt('forget which board?\n' + all.map(b => '· ' + b.name).join('\n')); const b = which && all.find(b => b.name === which.trim()); if (b) await store.del(b.id); paintBoards(); return; }
+    const b = all.find(b => String(b.id) === v); if (!b) return;
+    // the sound first: the board's voices and track become the current ones
+    for (const [n, data] of Object.entries(b.voices || {})) { try { localStorage.setItem(STYLES[n].cache, JSON.stringify(data.map(b64))); } catch {} audio.bufs[n] = []; }
+    if (b.track) { try { localStorage.setItem(MUSIC_KEY, b64(b.track)); } catch {} music.buffer = null; }
+    hearts.voice = hearts.music = null; paintHearts();
     music.chosen = true;   // a board's music choice is a choice
-    for (const id of BOARD_IDS) if (id in b.settings && id !== 'pieceSeed' && id !== 'play') window.duality.set(id, b.settings[id]);
+    for (const id of BOARD_IDS) if (id in b.settings && id !== 'pieceSeed' && id !== 'play' && id !== 'voice') window.duality.set(id, b.settings[id]);
     if ('play' in b.settings && $('play').value !== b.settings.play) window.duality.set('play', b.settings.play);
     if ('pieceSeed' in b.settings) newSeed(+b.settings.pieceSeed || 1);
+    if ('voice' in b.settings) { $('voice').value = b.settings.voice; if (audio.on && b.settings.voice === 'eleven') await loadPlucks(false); }
     sndStatus(`♪ board “${b.name}”`);
   };
-  paintBoards();
+  // boards saved before they held sound (localStorage, dials only) are carried into the database once
+  (async () => { const old = rawOf('duality-boards'); if (old && old.length) { for (const b of old) await store.put({ id: Date.now() + Math.random(), kind: 'board', name: b.name, when: stamp(), settings: b.settings, voices: {}, track: null }); localStorage.removeItem('duality-boards'); } paintBoards(); })();
   // OG: the sound as the page opens — nothing you've kept or saved is touched, just the dials go home
   $('ogBtn').onclick = () => {
     const set = window.duality.set;
