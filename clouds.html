@@ -206,7 +206,8 @@
   #radams { position: absolute; right: 22px; bottom: 20px; z-index: 9; opacity: .55; transition: opacity .3s; }
   #radams:hover { opacity: 1; }
   #radams img { display: block; width: 44px; height: auto; border-radius: 3px; }
-  body.embed:not(.clean) #radams { display: none; }   /* inside world.html the world carries the stamp */
+  body.embed:not(.clean) #radams { display: none; }
+  body.clean #linkGroup, body.clean #lnkStatus { display: none; }   /* the sky alone has nothing to link to */   /* inside world.html the world carries the stamp */
 </style>
 </head>
 <body>
@@ -309,17 +310,19 @@
     <input type="range" id="musicVol" min="0" max="100" step="1" value="65">
   </label>
   <button id="remusicBtn" title="compose a fresh backdrop track">recompose</button>
+  <span id="linkGroup" style="display:contents">
   <span class="sep"></span>
   <label>link <input type="text" id="linkUrl" placeholder="bus url" spellcheck="false"></label>
   <label>room <input type="text" id="linkRoom" value="duality" spellcheck="false"></label>
   <button id="linkBtn">connect</button>
   <label>influence <input type="range" id="influence" min="0" max="100" step="1" value="60"></label>
+  </span>
   <span class="sep"></span>
   <span id="reelGroup" style="display:contents"></span>
 
   <span class="status">
     <canvas id="assetThumb" title="click to replace asset"></canvas>
-    <b id="assetName">none</b> · beat <b id="beat">0</b> · <b id="phase">idle</b> · <b id="snd">♪ off</b> · <b id="mus">♫ off</b> · <b id="lnk">⟷ off</b>
+    <b id="assetName">none</b> · beat <b id="beat">0</b> · <b id="phase">idle</b> · <b id="snd">♪ off</b> · <b id="mus">♫ off</b><span id="lnkStatus"> · <b id="lnk">⟷ off</b></span>
   </span>
 </header>
 
