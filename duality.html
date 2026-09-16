@@ -51,7 +51,8 @@
   }
   header .brand { color: var(--accent); }
   header .brand::before { content: "> "; color: var(--dim); }
-  header .brand a { color: var(--dim); text-decoration: none; }
+  header .brand .explore { color: var(--dim); }
+  header .brand a { color: var(--fg); text-decoration: none; }
   header .brand a:hover { color: var(--accent); }
   label { color: var(--dim); }
   label span.val { color: var(--fg); }
@@ -213,15 +214,15 @@
   }
   kbd { color: var(--fg); }
   /* the RAD AMS stamp, bottom right */
-  #radams { position: absolute; right: 14px; bottom: 12px; z-index: 9; opacity: .45; transition: opacity .3s; }
+  #radams { position: absolute; right: 22px; bottom: 20px; z-index: 9; opacity: .55; transition: opacity .3s; }
   #radams:hover { opacity: 1; }
-  #radams img { display: block; width: 34px; height: auto; }
+  #radams img { display: block; width: 44px; height: auto; border-radius: 3px; }
 </style>
 </head>
 <body>
 
 <header>
-  <span class="brand">duality <a href="clouds.html">· clouds</a> <a href="world.html">· world</a></span>
+  <span class="brand">duality <span class="explore">· explore other worlds:</span> <a href="clouds.html">clouds ·</a> <a href="world.html">world</a></span>
 
   <label>on
     <input type="range" id="onRange" min="50" max="5000" step="50" value="1000">
