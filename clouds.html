@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUALITY · CLOUDS</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #d0d0d0;
+    --dim: #555;
+    --accent: #7dff7d;
+    --line: #222;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
+  }
+
+  /* ---- top bar ---- */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 16px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    user-select: none;
+    z-index: 2;
+  }
+  header .brand { color: var(--accent); }
+  header .brand::before { content: "> "; color: var(--dim); }
+  header .brand a { color: var(--dim); text-decoration: none; }
+  header .brand a:hover { color: var(--accent); }
+  label { color: var(--dim); white-space: nowrap; }
+  label span.val { color: var(--fg); }
+  select, input[type=number] {
+    background: transparent;
+    color: var(--fg);
+    border: none;
+    border-bottom: 1px solid var(--dim);
+    font: inherit;
+    padding: 0 2px;
+    outline: none;
+  }
+  select option { background: var(--bg); }
+  select:focus, input[type=number]:focus { border-color: var(--accent); }
+  input[type=number] { width: 48px; }
+  input[type=password] {
+    width: 130px;
+    background: transparent;
+    color: var(--fg);
+    border: none;
+    border-bottom: 1px solid var(--dim);
+    font: inherit;
+    padding: 0 2px;
+    outline: none;
+  }
+  input[type=password]:focus { border-color: var(--accent); }
+  input[type=text] {
+    width: 150px;
+    background: transparent;
+    color: var(--fg);
+    border: none;
+    border-bottom: 1px solid var(--dim);
+    font: inherit;
+    padding: 0 2px;
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  #linkRoom { width: 80px; }
+  /* the linked piece's colour bleeds in from the right edge */
+  #partnerVeil {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: radial-gradient(ellipse 55% 70% at 100% 45%, hsl(var(--partnerhue, 40) 75% 60%) 0%, transparent 70%);
+    opacity: 0; mix-blend-mode: color; transition: opacity 2s, background 4s linear;
+  }
+  #partnerVeil.on { opacity: .3; }
+  /* a soft band of haze on the horizon, so the deck's far edge never reads as a line */
+  #haze {
+    position: absolute; left: 0; width: 100%; top: 44%; height: 16%; z-index: 1; pointer-events: none;
+    background: linear-gradient(rgba(249,193,178,0) 0%, rgba(249,193,178,.14) 45%, rgba(249,193,178,.18) 55%, rgba(249,193,178,0) 100%);
+  }
+  .sep { width: 1px; height: 16px; background: var(--line); }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 110px;
+    height: 1px;
+    background: var(--dim);
+    vertical-align: middle;
+    margin: 0 8px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px; height: 14px;
+    background: var(--accent);
+    cursor: ew-resize;
+  }
+  button {
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--dim);
+    font: inherit;
+    padding: 2px 10px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .35; cursor: default; }
+  .status { flex-basis: 100%; color: var(--dim); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .status b { color: var(--accent); font-weight: normal; }
+  #assetThumb { height: 22px; width: auto; display: none; cursor: pointer; }
+  #assetThumb.on { display: inline-block; }
+
+  /* ---- sky ---- */
+  main {
+    position: relative;
+    overflow: hidden;
+    background: #000;   /* gradient set from the sky preset */
+  }
+  main canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  /* key veil: the piece's key tints the whole sky (circle of fifths → colour wheel) */
+  main::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background-color: hsl(var(--keyhue, 210) 70% 60%);
+    opacity: 0;
+    mix-blend-mode: color;
+    transition: background-color 4s linear, opacity 2s;
+  }
+  main.keyed::before { opacity: .12; }
+  /* film grain: an SVG noise tile, jittered so it lives */
+  main::after {
+    content: "";
+    position: absolute;
+    inset: -50%;
+    z-index: 2;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 320px 320px;
+    opacity: .17;
+    mix-blend-mode: overlay;
+    animation: grain .7s steps(5) infinite;
+  }
+  @keyframes grain {
+    0%   { transform: translate(0, 0); }
+    20%  { transform: translate(-2%, 1.5%); }
+    40%  { transform: translate(1.5%, -2%); }
+    60%  { transform: translate(-1%, -1%); }
+    80%  { transform: translate(2%, 1%); }
+    100% { transform: translate(0.5%, -1.5%); }
+  }
+
+  #drop {
+    position: absolute;
+    inset: 16px;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: rgba(255,255,255,.75);
+    border: 1px dashed rgba(255,255,255,.35);
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+    text-shadow: 0 1px 8px rgba(0,0,0,.35);
+  }
+  #drop.over, #drop:hover { border-color: var(--accent); color: var(--accent); }
+  #drop small { display: block; color: rgba(255,255,255,.6); margin-top: 6px; }
+  #drop.hidden { display: none; }
+  main.over #drop.hidden { display: grid; background: rgba(0,0,0,.55); }
+
+  footer {
+    position: absolute;
+    bottom: 8px;
+    left: 14px;
+    z-index: 3;
+    color: rgba(255,255,255,.6);
+    font-size: 11px;
+    user-select: none;
+    pointer-events: none;
+    text-shadow: 0 1px 6px rgba(0,0,0,.5);
+  }
+  kbd { color: #fff; }
+  #cleanHint { position: absolute; right: 12px; top: 10px; z-index: 6; color: rgba(255,255,255,.6); font-size: 11px; background: rgba(0,0,0,.3); padding: 3px 8px; border-radius: 10px; transition: opacity 1s; pointer-events: none; }
+  #cleanHint.gone { opacity: 0; }
+  #cleanBtn { position: absolute; left: 12px; top: 10px; z-index: 7; background: rgba(0,0,0,.35); color: rgba(255,255,255,.7); border: 0; border-radius: 10px; font: 14px/1 inherit; padding: 3px 9px; cursor: pointer; }
+  #cleanBtn:hover { color: #fff; }
+  /* embedded in world.html: just the sky */
+  body.embed header, body.embed footer { display: none; }
+  body.embed { grid-template-rows: 1fr; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">clouds <a href="harmony.html">· harmony</a> <a href="index.html">· duality</a></span>
+
+  <label>tempo
+    <input type="range" id="bpm" min="30" max="160" step="1" value="72">
+    <span class="val" id="bpmVal">72</span> bpm
+  </label>
+
+  <label>choir
+    <select id="choirN">
+      <option value="3" selected>3</option>
+      <option value="5">5</option>
+      <option value="7">7</option>
+      <option value="9">9</option>
+    </select>
+  </label>
+
+  <label>routine
+    <select id="routine">
+      <option value="auto">auto</option>
+      <option value="arc">arc · wave</option>
+      <option value="line">line · arc · line</option>
+      <option value="v">v · line · wave</option>
+    </select>
+  </label>
+
+  <label>sky
+    <select id="sky">
+      <option value="sunset" selected>sunset</option>
+      <option value="dusk">dusk</option>
+      <option value="day">day</option>
+    </select>
+  </label>
+
+  <label>lead
+    <select id="leadPos">
+      <option value="none" selected>none</option>
+      <option value="right">right φ</option>
+      <option value="left">left φ</option>
+      <option value="center">center</option>
+    </select>
+  </label>
+
+  <label>play
+    <select id="play">
+      <option value="piece" selected>piece (a cappella)</option>
+      <option value="mouse">mouse</option>
+      <option value="keys">keys</option>
+      <option value="voice">voice (mic)</option>
+      <option value="auto">auto routine</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="auto" checked> auto-cue</label>
+  <span class="sep"></span>
+  <label>seed <input type="number" id="pieceSeed" min="1" step="1" value="1"></label>
+  <button id="newSeedBtn" title="a new piece">new</button>
+  <label><input type="checkbox" id="instEp" checked> ep09</label>
+  <label><input type="checkbox" id="instToy" checked> toy piano</label>
+  <label><input type="checkbox" id="instTape"> tape</label>
+  <label><input type="checkbox" id="halo" checked> halo</label>
+  <label><input type="checkbox" id="parallax" checked> parallax</label>
+  <label><input type="checkbox" id="key"> key bg <input type="number" id="keyTol" min="0" max="128" value="24"></label>
+
+  <button id="cueBtn" disabled>cue</button>
+  <button id="pauseBtn" class="on">flying</button>
+  <button id="exportBtn">export png</button>
+
+  <span class="sep"></span>
+  <button id="soundBtn">sound off</button>
+  <label>voices
+    <select id="style">
+      <option value="ensemble" selected>ensemble (piano · meow · bass)</option>
+      <option value="piano">piano (ep09)</option>
+      <option value="toy">toy piano</option>
+      <option value="vox">tape vox</option>
+      <option value="meow">meow</option>
+      <option value="bass">bass</option>
+      <option value="hey">hey!</option>
+      <option value="ow">toddler ow</option>
+      <option value="bulgarian">bulgarian choir</option>
+      <option value="mixed">mixed (alternating)</option>
+    </select>
+    <select id="voice">
+      <option value="eleven">elevenlabs</option>
+      <option value="synth">synth</option>
+    </select>
+  </label>
+  <input type="password" id="xiKey" placeholder="xi-api-key" autocomplete="off" spellcheck="false">
+  <button id="regenBtn" title="generate a fresh set of voice samples">regen</button>
+  <label>music
+    <select id="music">
+      <option value="eleven">elevenlabs</option>
+      <option value="synth">synth organ</option>
+      <option value="off">off</option>
+    </select>
+    <input type="range" id="musicVol" min="0" max="100" step="1" value="65">
+  </label>
+  <button id="remusicBtn" title="compose a fresh backdrop track">recompose</button>
+  <span class="sep"></span>
+  <label>link <input type="text" id="linkUrl" placeholder="bus url" spellcheck="false"></label>
+  <label>room <input type="text" id="linkRoom" value="duality" spellcheck="false"></label>
+  <button id="linkBtn">connect</button>
+  <label>influence <input type="range" id="influence" min="0" max="100" step="1" value="60"></label>
+  <span class="sep"></span>
+  <span id="reelGroup" style="display:contents"></span>
+
+  <span class="status">
+    <canvas id="assetThumb" title="click to replace asset"></canvas>
+    <b id="assetName">none</b> · beat <b id="beat">0</b> · <b id="phase">idle</b> · <b id="snd">♪ off</b> · <b id="mus">♫ off</b> · <b id="lnk">⟷ off</b>
+  </span>
+</header>
+
+<main id="main">
+  <div id="drop">
+    <span>drop angel frames<small>one png, or several poses of the same figure · click to pick</small></span>
+  </div>
+  <div id="partnerVeil"></div>
+  <div id="haze"></div>
+  <footer id="hint"></footer>
+</main>
+
+<script src="vendor/three.min.js"></script>
+<script src="acapella.js"></script>
+<script src="reel.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const TAU = Math.PI * 2;
+  const P5 = 3 / 2;
+  // sky presets: gradient stops, fog colour (= horizon), and a tint for the cloud sprites
+  const SKIES = {
+    day:    { stops: [[0, '#1e4877'], [0.5, '#4584b4'], [1, '#4584b4']], fog: '#4584b4', tint: [1, 1, 1] },
+    sunset: { stops: [[0, '#3b2f6e'], [0.16, '#6b56a4'], [0.32, '#a984c0'], [0.46, '#d99bba'], [0.6, '#f4a9a6'], [0.76, '#f9c1b2'], [1, '#f9c1b2']], fog: '#f6b7ac', tint: [1.0, 0.93, 0.92] },
+    dusk:   { stops: [[0, '#0c0a1e'], [0.35, '#2b1b4a'], [0.55, '#7a3d6a'], [0.7, '#b8657a'], [1, '#b8657a']], fog: '#b3667a', tint: [0.9, 0.78, 0.82] }
+  };
+  const gradientCss = sky => `linear-gradient(${sky.stops.map(([o, c]) => `${c} ${o * 100}%`).join(', ')})`;
+  function applySky() {
+    const sky = SKIES[$('sky').value];
+    main.style.background = gradientCss(sky);
+    fogUniforms.fogColor.value.set(sky.fog);
+    if (cloudMat) cloudMat.uniforms.tint.value.set(...sky.tint);
+  }
+  // the deck is centred at y = -rand*rand*200 - 15 (mrdoob), but nearer sprites overhang the horizon,
+  // so the cloud line the camera actually sees at choir depth is a little above y = 0
+  const SURFACE = 4;
+  const FOLLOW = 0.6;            // how much the angels track the camera's parallax drift
+  const D_LEAD = 380, D_CHOIR = 540;   // distance in front of the camera
+  const D_BANK = 330, BANK_Y_LO = -30, BANK_Y_HI = -6;   // the near cloud bank: where it sits between the camera and the choir
+  const FOV = 30;
+
+  /* ---- rng ---- */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ---- procedural cloud sprite (stands in for cloud10.png) ---- */
+  function cloudTexture(seed = 7) {
+    const r = mulberry32(seed);
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    const ctx = c.getContext('2d');
+    for (let k = 0; k < 90; k++) {
+      // gaussian-ish cluster around the centre, flattened a little
+      const a = r() * TAU, d = (r() + r() + r()) / 3 * S * 0.34;
+      const x = S / 2 + Math.cos(a) * d, y = S / 2 + Math.sin(a) * d * 0.85;
+      const rad = S * (0.06 + r() * r() * 0.16);
+      const shade = 1 - Math.max(0, (y - S / 2) / S) * 0.35;      // undersides a touch grey-blue
+      const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+      g.addColorStop(0, `rgba(${255 * shade | 0},${(255 * shade + 2) | 0},${(255 * shade + 6) | 0},${0.55 + r() * 0.35})`);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+    }
+    // soft circular mask so sprites never show a square edge
+    ctx.globalCompositeOperation = 'destination-in';
+    const m = ctx.createRadialGradient(S / 2, S / 2, S * 0.2, S / 2, S / 2, S * 0.5);
+    m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = m; ctx.fillRect(0, 0, S, S);
+    const tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearMipMapLinearFilter; tex.magFilter = THREE.LinearFilter;
+    return tex;
+  }
+
+  /* ---- cloud field: 8000 planes merged into one geometry, mrdoob's distribution ---- */
+  function cloudGeometry(seed = 1) {
+    const r = mulberry32(seed);
+    const N = 8000;
+    const pos = new Float32Array(N * 4 * 3), uv = new Float32Array(N * 4 * 2), idx = new Uint32Array(N * 6);
+    for (let i = 0; i < N; i++) {
+      const x = r() * 1000 - 500;
+      // mrdoob's sea is dead flat, so its far edge converges to a ruled line; slow swells across the field
+      // (a few hundred units long) make the top edge undulate at every distance
+      // swells only dip the surface (0 … −60), never raise it: a cloud above eye level would engulf the camera
+      const swell = -30 + 30 * Math.sin(x / 210 + i / 900) * Math.cos(i / 330) - 8 + 8 * Math.sin(i / 57);
+      const y = (r() < 0.02 ? r() * r() * 25 - 14 : -r() * r() * 200 - 15) + swell;
+      const z = i;
+      const rot = r() * Math.PI;
+      const s = (r() * r() * 1.5 + 0.5) * 32;   // half-size of a 64-unit plane
+      const cs = Math.cos(rot) * s, sn = Math.sin(rot) * s;
+      const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+      for (let k = 0; k < 4; k++) {
+        const [cx, cy] = corners[k];
+        pos[(i * 4 + k) * 3] = x + cx * cs - cy * sn;
+        pos[(i * 4 + k) * 3 + 1] = y + cx * sn + cy * cs;
+        pos[(i * 4 + k) * 3 + 2] = z;
+        uv[(i * 4 + k) * 2] = (cx + 1) / 2;
+        uv[(i * 4 + k) * 2 + 1] = (cy + 1) / 2;
+      }
+      const b = i * 4;
+      idx.set([b, b + 1, b + 2, b, b + 2, b + 3], i * 6);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    return g;
+  }
+
+  /* ---- shaders (cloud pair is mrdoob's, angel adds fade + submerge tint) ---- */
+  const VS = `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+  const CLOUD_FS = `
+    uniform sampler2D map; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar; uniform vec3 tint;
+    varying vec2 vUv;
+    void main() {
+      float depth = gl_FragCoord.z / gl_FragCoord.w;
+      float fogFactor = smoothstep(fogNear, fogFar, depth);
+      gl_FragColor = texture2D(map, vUv);
+      gl_FragColor.rgb *= tint;
+      gl_FragColor.w *= pow(gl_FragCoord.z, 20.0);
+      gl_FragColor = mix(gl_FragColor, vec4(fogColor, gl_FragColor.w), fogFactor);
+    }`;
+  const ANGEL_FS = `
+    uniform sampler2D map; uniform vec3 fogColor; uniform float fogNear; uniform float fogFar;
+    uniform float sub; uniform float opacity; uniform vec3 tint; uniform float tintAmt;
+    uniform float fadeLo; uniform float fadeHi;   // in sprite uv: below fadeLo she's gone, above fadeHi she's whole
+    varying vec2 vUv;
+    void main() {
+      vec4 c = texture2D(map, vUv);
+      float vis = opacity * (1.0 - sub);
+      if (c.a < 0.5 || vis < 0.02) discard;
+      // no fade of her own: she simply sits behind the cloud deck, which is drawn in front of her
+      // recoloured by a mushroom: keep the shading, replace the hue
+      float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+      c.rgb = mix(c.rgb, tint * (0.15 + 1.7 * lum), tintAmt);
+      c.rgb = mix(c.rgb, vec3(0.93, 0.95, 0.98), sub * 0.85);
+      float depth = gl_FragCoord.z / gl_FragCoord.w;
+      float f = smoothstep(fogNear, fogFar, depth);
+      gl_FragColor = vec4(mix(c.rgb, fogColor, f), c.a * vis);
+    }`;
+
+  /* ---- scene ---- */
+  const main = $('main'), drop = $('drop');
+  let renderer, scene, camera, cloudMat, ridge, bank, meMode = false;
+  const fogUniforms = {
+    fogColor: { value: new THREE.Color(SKIES.sunset.fog) }, fogNear: { value: -100 }, fogFar: { value: 3000 }
+  };
+  let mouseX = 0, mouseY = 0;
+  let flying = true, flightT = 0, lastNow = performance.now();
+
+  function initScene() {
+    camera = new THREE.PerspectiveCamera(FOV, 1, 1, 3000);
+    camera.position.z = 6000;
+    // in the world the sky is a band above the forest: look slightly up so the deck takes less of it
+    { const q = new URLSearchParams(location.search); camera.rotation.x = q.has('embed') ? 0.11 : q.has('clean') ? 0.16 : 0.05; }
+    scene = new THREE.Scene();
+
+    cloudMat = new THREE.ShaderMaterial({
+      uniforms: { map: { value: cloudTexture() }, tint: { value: new THREE.Vector3(1, 1, 1) }, ...fogUniforms },
+      vertexShader: VS, fragmentShader: CLOUD_FS,
+      depthWrite: false, depthTest: true, transparent: true
+    });
+    const geo = cloudGeometry();
+    const m1 = new THREE.Mesh(geo, cloudMat);
+    const m2 = new THREE.Mesh(geo, cloudMat); m2.position.z = -8000;
+    m1.frustumCulled = m2.frustumCulled = false;
+    scene.add(m1, m2);
+    // the horizon ridge: big distant clouds that travel with the camera and sit on the sea's far edge,
+    // fogged almost to sky colour — so the horizon is a soft, lumpy line instead of a ruled one
+    const bankMat = cloudMat.clone();
+    bankMat.uniforms = { map: cloudMat.uniforms.map, tint: cloudMat.uniforms.tint, fogColor: fogUniforms.fogColor, fogNear: { value: 1e6 }, fogFar: { value: 2e6 } };   // no fog: stays white
+    // a bank of big cloud sprites: N of them scattered over ±spread in x, centres between yLo and yHi, sizes szLo..szHi
+    function cloudBank(seed, N, spread, yLo, yHi, szLo, szHi, zSpread) {
+      const r = mulberry32(seed);
+      const pos = new Float32Array(N * 12), uv = new Float32Array(N * 8), idx = new Uint32Array(N * 6);
+      for (let i = 0; i < N; i++) {
+        const x = (r() - 0.5) * spread, y = yLo + r() * r() * (yHi - yLo), z = (r() - 0.5) * zSpread;
+        const rot = r() * Math.PI, sz = szLo + r() * (szHi - szLo), cs = Math.cos(rot) * sz, sn = Math.sin(rot) * sz;
+        [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([cx, cy], k) => {
+          pos.set([x + cx * cs - cy * sn, y + cx * sn + cy * cs, z], (i * 4 + k) * 3);
+          uv.set([(cx + 1) / 2, (cy + 1) / 2], (i * 4 + k) * 2);
+        });
+        idx.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4, i * 4 + 2, i * 4 + 3], i * 6);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setIndex(new THREE.BufferAttribute(idx, 1));
+      const m = new THREE.Mesh(g, bankMat); m.frustumCulled = false; return m;
+    }
+    ridge = cloudBank(99, 160, 2400, -48, 12, 80, 230, 400); ridge.renderOrder = -3;
+    scene.add(ridge);
+    // the near bank: the same clouds between the camera and the choir, so the angels stand behind a real cloud edge
+    // (their hems go in and out of it as they bob; nothing is done to the figures themselves)
+    bank = cloudBank(7, 64, 900, BANK_Y_LO, BANK_Y_HI, 20, 52, 120); bank.renderOrder = 0;
+    scene.add(bank);
+
+    renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x000000, 0);
+    main.appendChild(renderer.domElement);
+    applySky();
+    $('sky').onchange = applySky;
+    resize();
+    window.addEventListener('resize', resize);
+    main.addEventListener('mousemove', e => {
+      const r = main.getBoundingClientRect();
+      mouseX = (e.clientX - r.left - r.width / 2) * 0.25;
+      mouseY = (e.clientY - r.top - r.height / 2) * 0.15;
+      mx = (e.clientX - r.left) / r.width * 2 - 1;
+      my = (e.clientY - r.top) / r.height * 2 - 1;
+    });
+    main.addEventListener('click', e => {
+      if (!asset || e.target === drop) return;
+      if (playMode() === 'piece') { if (piece.engine) piece.engine.modulateNow(); }
+      else if (isConduct()) nextFormation();
+    });
+  }
+  function resize() {
+    const w = main.clientWidth, h = main.clientHeight;
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+  // half extents of the view at a given distance in front of the camera
+  const view = D => { const hh = D * Math.tan(FOV / 2 * Math.PI / 180); return { hw: hh * camera.aspect, hh }; };
+
+  /* ---- asset: one figure, several pose frames ----
+     Frames are cropped to a shared bounding box so the figure keeps one scale across poses. */
+  const FRAME_FILES = [
+    '93e3e26b-fd5f-4c07-add3-fe29905c6658.png',   // closed: arms over the veil, wings folded
+    '8baa654f-da7b-4e02-b1ba-893495adcea0.png',   // arms bent up, wings lifting
+    '08f98bd8-a3b0-4de7-bd17-c067799443a8.png',   // arms high, wings out
+    '3c7624b0-4085-4408-a19a-64869e857235.png',   // arms out, wings high
+    'f4b2a38b-ec91-4bb7-8d59-adf8e88df159.png',   // wings widest
+    'a532fdbd-7769-46bc-9f06-c196d9488b40.png'    // arms out low, wings spread
+  ];
+  let asset = null;   // { ar, frames: [{ canvas, tex }] }
+  let srcImgs = [], srcName = '';
+
+  function keyed(img) {
+    // draw to a canvas, optionally chroma-keying the corner colour (assets on flat backgrounds)
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0);
+    if (!$('key').checked) return c;
+    const id = ctx.getImageData(0, 0, w, h), d = id.data;
+    const tol = Math.max(0, +$('keyTol').value || 0);
+    const corners = [0, (w - 1) * 4, (h - 1) * w * 4, ((h - 1) * w + w - 1) * 4];
+    let kr = 0, kg = 0, kb = 0;
+    for (const o of corners) { kr += d[o]; kg += d[o + 1]; kb += d[o + 2]; }
+    kr /= 4; kg /= 4; kb /= 4;
+    for (let i = 0; i < d.length; i += 4) {
+      const dist = Math.max(Math.abs(d[i] - kr), Math.abs(d[i + 1] - kg), Math.abs(d[i + 2] - kb));
+      if (dist <= tol) d[i + 3] = 0;
+      else if (dist <= tol * 1.5) d[i + 3] = Math.min(d[i + 3], Math.round(255 * (dist - tol) / Math.max(1, tol * 0.5)));
+    }
+    ctx.putImageData(id, 0, 0);
+    return c;
+  }
+  function alphaBox(c) {
+    // normalised bbox of visible pixels
+    const w = c.width, h = c.height;
+    const d = c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+    const step = Math.max(1, Math.round(Math.sqrt(w * h / 1e6)));
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y += step) for (let x = 0; x < w; x += step) {
+      if (d[(y * w + x) * 4 + 3] < 16) continue;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    if (x1 < 0) return { x0: 0, y0: 0, x1: 1, y1: 1 };
+    return { x0: Math.max(0, x0 - step) / w, y0: Math.max(0, y0 - step) / h, x1: Math.min(w, x1 + step + 1) / w, y1: Math.min(h, y1 + step + 1) / h };
+  }
+  function buildFrames(imgs) {
+    const cs = imgs.map(keyed);
+    const boxes = cs.map(alphaBox);
+    const u = {
+      x0: Math.min(...boxes.map(b => b.x0)), y0: Math.min(...boxes.map(b => b.y0)),
+      x1: Math.max(...boxes.map(b => b.x1)), y1: Math.max(...boxes.map(b => b.y1))
+    };
+    if (asset) for (const f of asset.frames) f.tex.dispose();
+    const frames = cs.map(c => {
+      const sx = u.x0 * c.width, sy = u.y0 * c.height, sw = (u.x1 - u.x0) * c.width, sh = (u.y1 - u.y0) * c.height;
+      const out = document.createElement('canvas'); out.width = Math.round(sw); out.height = Math.round(sh);
+      out.getContext('2d').drawImage(c, sx, sy, sw, sh, 0, 0, out.width, out.height);
+      const tex = new THREE.CanvasTexture(out);
+      tex.minFilter = THREE.LinearMipMapLinearFilter; tex.magFilter = THREE.LinearFilter;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return { canvas: out, tex };
+    });
+    asset = { ar: frames[0].canvas.width / frames[0].canvas.height, frames };
+
+    const t = $('assetThumb'); t.height = 44; t.width = Math.max(8, Math.round(44 * asset.ar));
+    t.getContext('2d').drawImage(frames[0].canvas, 0, 0, t.width, t.height);
+    t.classList.add('on');
+    $('assetName').textContent = `${srcName} · ${frames.length} frame${frames.length > 1 ? 's' : ''}`;
+  }
+  const decode = blob => new Promise((res, rej) => {
+    const url = URL.createObjectURL(blob), img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); res(img); };
+    img.onerror = rej; img.src = url;
+  });
+  async function loadFiles(files, name) {
+    files = [...files].filter(f => f && f.type.startsWith('image/'));
+    if (!files.length) return;
+    srcImgs = await Promise.all(files.map(decode));
+    srcName = name || (files.length > 1 ? `${files[0].name} +${files.length - 1}` : files[0].name);
+    buildFrames(srcImgs);
+    $('drop').classList.add('hidden');
+    $('cueBtn').disabled = false;
+    buildAngels();
+    if (!isConduct() && $('auto').checked) cue();
+  }
+
+  /* ---- angels ---- */
+  const unitPlane = new THREE.PlaneGeometry(1, 1);
+  function angelMesh() {
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { map: { value: asset.frames[0].tex }, sub: { value: 0 }, opacity: { value: 1 }, tint: { value: new THREE.Color(1, 1, 1) }, tintAmt: { value: 0 }, fadeLo: { value: -2 }, fadeHi: { value: -1 }, ...fogUniforms },
+      vertexShader: VS, fragmentShader: ANGEL_FS,
+      transparent: true, depthWrite: true, depthTest: true
+    });
+    const m = new THREE.Mesh(unitPlane, mat);
+    m.renderOrder = -1;          // drawn before the clouds so their depth test can occlude it
+    m.frustumCulled = false;
+    return m;
+  }
+  function haloSprite() {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    g.addColorStop(0, 'rgba(255,225,150,0.45)');
+    g.addColorStop(0.35, 'rgba(255,210,120,0.12)');
+    g.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(c), blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, transparent: true
+    }));
+    s.renderOrder = -2;
+    return s;
+  }
+
+  let lead = null, halo = null, choir = [];
+  function buildAngels() {
+    if (lead) { scene.remove(lead); lead.material.dispose(); }
+    if (halo) { scene.remove(halo); }
+    for (const a of choir) { scene.remove(a); a.material.dispose(); }
+    lead = angelMesh(); scene.add(lead);
+    halo = haloSprite(); scene.add(halo);
+    const n = +$('choirN').value;
+    choir = [];
+    for (let i = 0; i < n; i++) { const a = angelMesh(); scene.add(a); choir.push(a); }
+    under = Array(n).fill(true); lastPop = Array(n).fill(0);
+  }
+
+  /* ---- choreography ----
+     Every formation maps (i, n, beat, v) -> {x, y, scale} in the choir's view plane (always upright).
+     v = { hw, hh, h }: half extents of the view at choir depth, h = a swimmer's height. */
+  const F = {};
+  const centre = n => (n - 1) / 2;
+  const t01 = (i, n) => (i - centre(n)) / Math.max(1, centre(n));     // -1 … 1 across the line
+  // shoulder-to-shoulder spacing: just over a figure's width, never wider than the view allows
+  const half = (n, v) => Math.min(v.hw * 1.1, centre(n) * v.h * asset.ar * 1.05);
+
+  F.hidden = (i, n, b, v) => ({ x: t01(i, n) * half(n, v), y: SURFACE - v.h * 2.2, scale: 1 });
+
+  F.line = (i, n, b, v) => ({ x: t01(i, n) * half(n, v), y: SURFACE + v.h * 0.4, scale: 1 });
+
+  // loose: the line with the evenness taken out — each swimmer sits off her grid spot by a φ-scrambled
+  // amount and drifts slowly, so no two spacings match and the group never quite settles
+  F.loose = (i, n, b, v) => {
+    const jitter = ((i * PHI) % 1 - 0.5) * 0.9;                        // -0.45 … 0.45 of a slot, never repeating
+    const drift = Math.sin(b * Math.PI / 24 + i * PHI * 2) * 0.22;     // one slow wander every ~48 beats
+    return { x: (t01(i, n) + (jitter + drift) / Math.max(1, centre(n))) * half(n, v) * 1.15, y: SURFACE + v.h * 0.4, scale: 1 - ((i * PHI * 3) % 1) * 0.12 };
+  };
+
+  F.arc = (i, n, b, v) => {
+    const t = t01(i, n), spread = Math.PI / 2, a = t * spread / 2, R = half(n, v) / Math.sin(spread / 2);
+    return {
+      x: Math.sin(a) * R,
+      y: SURFACE + v.h * 0.42 + (Math.cos(a) - Math.cos(spread / 2)) * R * 0.5,
+      scale: 1 / P5 ** (Math.abs(t) * 0.5)     // outer voices a little smaller (half a fifth)
+    };
+  };
+
+  F.wave = (i, n, b, v) => {
+    const t = t01(i, n), ph = b * Math.PI / 2 - i * Math.PI / PHI;
+    return { x: t * half(n, v), y: SURFACE + v.h * 0.42 + Math.sin(ph) * v.h * 0.4, scale: 1 };
+  };
+
+  F.v = (i, n, b, v) => {
+    const t = t01(i, n);
+    return { x: t * half(n, v), y: SURFACE + v.h * 0.45 + (1 - Math.abs(t)) * v.h * 0.5, scale: 1 - Math.abs(t) * 0.15 };
+  };
+
+  // routines: [formation, beats] pairs; every routine is wrapped in hidden → … → hidden
+  const ROUTINES = {
+    arc:  [['arc', 8], ['wave', 8], ['arc', 4]],
+    line: [['line', 6], ['arc', 6], ['line', 4]],
+    v:    [['v', 6], ['line', 4], ['wave', 8]]
+  };
+  const MORPH = 2, STAGGER = 0.5, REST = 8;   // beats
+  let phases = [], phaseIdx = 0, phaseStart = 0, routineIdx = 0, restUntil = 0;
+
+  // conduct mode: the mouse places the choir, clicks cycle the formation
+  const CONDUCT_FORMS = ['arc', 'line', 'wave', 'v'];
+  let formIdx = 0, cPrev = 'arc', cNext = 'arc', cStart = -99;
+  let mx = 0, my = 0, smx = 0, smy = 0;          // normalised mouse over the stage, and a smoothed copy
+  function nextFormation() {
+    cPrev = cNext; cNext = CONDUCT_FORMS[++formIdx % CONDUCT_FORMS.length]; cStart = beatNow();
+    // the change itself sings: each pair enters on its stagger beat, an arpeggio of perfect intervals
+    const n = choir.length;
+    for (let i = 0; i < n; i++) {
+      const pair = Math.abs(i - centre(n));
+      setTimeout(() => pluck(i, n, (i - centre(n)) / Math.max(1, centre(n)) * 0.6, 'up'), pair * STAGGER / bpm * 60000);
+    }
+  }
+  const playMode = () => $('play').value;
+  const isConduct = () => playMode() !== 'auto';     // every mode but the auto routine is hand-driven
+
+  // keys mode: one key per swimmer, left to right; held = up and singing
+  const KEYS = 'asdfghjkl';
+  const keyHeld = new Set();
+  let liftI = [], velI = [];                            // per-swimmer spring (keys mode)
+
+  // voice mode: microphone → loudness lifts the choir, pitch slides it and re-tunes the voices
+  const mic = { stream: null, analyser: null, buf: null, level: 0, f: 0, ratio: 1, on: false, hist: [], ears: null, talking: false, listen: false };
+  async function startMic() {
+    if (mic.on) return true;
+    try {
+      const ctx = ensureCtx(); await ctx.resume();
+      mic.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+      const src = ctx.createMediaStreamSource(mic.stream);
+      mic.analyser = ctx.createAnalyser(); mic.analyser.fftSize = 2048;
+      src.connect(mic.analyser);                          // analysis only — never routed to the speakers
+      mic.buf = new Float32Array(mic.analyser.fftSize);
+      mic.on = true;
+      return true;
+    } catch (e) { sndStatus(`♪ mic unavailable: ${e.message}`); return false; }
+  }
+  function stopMic() {
+    if (mic.stream) mic.stream.getTracks().forEach(t => t.stop());
+    mic.stream = null; mic.analyser = null; mic.on = false; mic.level = 0; mic.f = 0;
+  }
+  function readMic() {
+    if (!mic.on) return;
+    const a = mic.analyser, buf = mic.buf, sr = audio.ctx.sampleRate;
+    a.getFloatTimeDomainData(buf);
+    let rms = 0; for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / buf.length);
+    // compressed loudness: a soft medium hum reads as clearly "there", a shout doesn't read as ten times more
+    const loud = 1 - Math.exp(-rms * 22);
+    mic.level += (loud - mic.level) * (loud > mic.level ? 0.35 : 0.06);   // fast up, slow down
+    if (rms < 0.008) return;
+    // pitch: autocorrelation, first peak after the initial dip, 80–1000 Hz
+    const N = buf.length / 2, minLag = Math.floor(sr / 1000), maxLag = Math.floor(sr / 80);
+    let e0 = 0; for (let i = 0; i < N; i++) e0 += buf[i] * buf[i];
+    // correlation for every lag, then the FIRST peak that is nearly as tall as the tallest
+    // (taking the tallest picks the lag of two or three periods → octave errors)
+    const corr = new Float32Array(maxLag);
+    let best = 0, dipped = false, from = maxLag;
+    for (let lag = minLag; lag < maxLag; lag++) {
+      let c = 0; for (let i = 0; i < N; i++) c += buf[i] * buf[i + lag];
+      corr[lag] = c / e0;
+      if (!dipped) { if (corr[lag] < 0.3) { dipped = true; from = lag; } continue; }
+      if (corr[lag] > best) best = corr[lag];
+    }
+    if (best > 0.5) {
+      let lag = from;
+      while (lag < maxLag && corr[lag] < best * 0.9) lag++;                  // first candidate
+      while (lag + 1 < maxLag && corr[lag + 1] > corr[lag]) lag++;           // climb to its local top
+      const f = sr / lag;
+      mic.f = mic.f ? mic.f + (f - mic.f) * 0.3 : f;
+    }
+  }
+  let beatOrigin = performance.now(), bpm = 72;
+
+  const beatNow = () => (performance.now() - beatOrigin) / 60000 * bpm;
+  function setBpm(v) {
+    // keep the current beat continuous across a tempo change
+    const b = beatNow(); bpm = v; beatOrigin = performance.now() - b / bpm * 60000;
+    $('bpmVal').textContent = bpm;
+  }
+
+  function cue() {
+    if (!asset) return;
+    let key = $('routine').value;
+    const keys = Object.keys(ROUTINES);
+    if (key === 'auto') key = keys[routineIdx++ % keys.length];
+    phases = [['hidden', 0], ...ROUTINES[key], ['hidden', 0]];
+    phaseIdx = 1; phaseStart = beatNow();
+  }
+  function nextPhase() {
+    if (phaseIdx >= phases.length - 1) return;
+    phaseIdx++; phaseStart = beatNow();
+    if (phaseIdx === phases.length - 1) restUntil = phaseStart + MORPH + STAGGER * centre(choir.length) + REST;
+  }
+  const easeOutBack = p => 1 + 2.7 * (p - 1) ** 3 + 1.7 * (p - 1) ** 2;
+  const easeInBack = p => p * p * (2.7 * p - 1.7);
+  const smooth = p => p * p * (3 - 2 * p);
+  const clamp01 = x => Math.max(0, Math.min(1, x));
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  let under = [], lastPop = [];
+  function updateChoir(b) {
+    const n = choir.length; if (!n) return;
+    const v = view(D_CHOIR); v.h = v.hh * (meMode ? 0.72 : 0.52);   // with a portrait as the figure, bigger so the face reads
+    const camX = camera.position.x * FOLLOW, camY = camera.position.y * FOLLOW, z = camera.position.z - D_CHOIR;
+    const conduct = isConduct();
+
+    let prev, next, rising = false, diving = false, start, offX = 0, lift = 0;
+    const mode = playMode();
+    if (liftI.length !== n) { liftI = Array(n).fill(-v.h * 2.4); velI = Array(n).fill(0); }
+    if (conduct) {
+      prev = F[cPrev]; next = F[cNext]; start = cStart;
+      if (mode === 'piece') { prev = next = F.loose; }
+      if (mode === 'mouse') {
+        // x slides the formation, y lifts it out of the clouds (up) or sinks it (down)
+        smx += (mx - smx) * 0.08; smy += (my - smy) * 0.08;
+        offX = smx * v.hw * 0.45;
+        lift = smy < 0 ? -smy * v.hh * 0.45 : -smy * v.h * 2.4;
+      } else if (mode === 'keys') {
+        // formation sits at the cloud line; each held key springs its swimmer up (with a little overshoot)
+        for (let i = 0; i < n; i++) {
+          const target = keyHeld.has(i) ? v.hh * 0.28 : -v.h * 2.4;
+          velI[i] = (velI[i] + (target - liftI[i]) * 0.09) * 0.78;
+          liftI[i] += velI[i];
+        }
+      } else if (mode === 'piece') {
+        if (mic.on && mic.listen) {
+          // speak: each swimmer hears you through her own ears (see voice mode), hops above her mushroom and meows back
+          readMic();
+          const nowMs = performance.now();
+          mic.hist.push([nowMs, mic.level]); while (mic.hist.length && mic.hist[0][0] < nowMs - 2000) mic.hist.shift();
+          if (mic.level > 0.12 && !mic.talking) {
+            mic.talking = true;
+            mic.ears = Array.from({ length: n }, () => ({ delay: 60 + Math.random() * 900, thr: 0.04 + Math.random() * 0.16, gain: 1, rate: 0.03 + Math.random() * 0.14, lv: 0, said: false }));
+          } else if (mic.level < 0.04) { mic.talking = false; if (mic.ears) for (const e of mic.ears) e.said = false; }
+          if (!mic.ears || mic.ears.length !== n) mic.ears = Array.from({ length: n }, () => ({ delay: 300, thr: 0.08, gain: 1, rate: 0.08, lv: 0, said: false }));
+          const levelAt = t => { let l = 0; for (const h of mic.hist) { if (h[0] <= t) l = h[1]; else break; } return l; };
+          if (mic.f) mic.ratio = Math.min(2, Math.max(0.5, mic.f / 440));
+          for (let i = 0; i < n; i++) {
+            const ear = mic.ears[i], heard = clamp01((levelAt(nowMs - ear.delay) - ear.thr) / (1 - ear.thr));
+            ear.lv += (heard - ear.lv) * (heard > ear.lv ? ear.rate : ear.rate * 0.4);
+            if (ear.lv > 0.45 && !ear.said) { ear.said = true; link.nudge[i] = Math.max(link.nudge[i] || 0, 0.9); pluck(i, n, [-0.45, 0, 0.45][i % 3], 'up', true); }
+          }
+        }
+        const now = audio.ctx ? audio.ctx.currentTime : 0;
+        if (piece.energy.length !== n) piece.energy = Array(n).fill(0);
+        for (let i = 0; i < n; i++) {
+          const e = piece.engine && piece.engine.timer ? piece.engine.current(i % 3, now) : null;
+          // the note's pitch sets the height: bass grazes the cloud line, the soprano floats high
+          const target = e ? -v.h * 0.35 + clamp01((e.midi - 40) / 40) * (v.hh * 0.6 + v.h * 0.35) : -v.h * 2.4;
+          velI[i] = (velI[i] + (target - liftI[i]) * 0.05) * 0.84;
+          liftI[i] += velI[i];
+          piece.energy[i] = e ? Math.max(piece.energy[i] * 0.9, e.vel) : piece.energy[i] * 0.95;
+        }
+      } else if (mode === 'voice') {
+        readMic();
+        // each swimmer hears you through her own ears: a different delay, threshold, eagerness and lag,
+        // re-rolled every time you start speaking — so they surface one by one, in a new order each time
+        const now = performance.now();
+        mic.hist.push([now, mic.level]); while (mic.hist.length && mic.hist[0][0] < now - 2000) mic.hist.shift();
+        if (mic.level > 0.12 && !mic.talking) {
+          mic.talking = true;
+          mic.ears = Array.from({ length: n }, () => ({
+            delay: 60 + Math.random() * 1100,          // ms of hesitation
+            thr: 0.04 + Math.random() * 0.16,          // how loud you have to be for her (a medium hum is enough)
+            gain: 0.7 + Math.random() * 1.0,           // how high she goes for it
+            rate: 0.03 + Math.random() * 0.14,         // how quickly she reacts
+            lv: 0
+          }));
+        } else if (mic.level < 0.04) mic.talking = false;
+        if (!mic.ears || mic.ears.length !== n) mic.ears = Array.from({ length: n }, () => ({ delay: 300, thr: 0.08, gain: 1.1, rate: 0.08, lv: 0 }));
+        const levelAt = t => { let l = 0; for (const h of mic.hist) { if (h[0] <= t) l = h[1]; else break; } return l; };
+        for (let i = 0; i < n; i++) {
+          const ear = mic.ears[i];
+          const heard = clamp01((levelAt(now - ear.delay) - ear.thr) / (1 - ear.thr)) * ear.gain;
+          ear.lv += (Math.min(1, heard) - ear.lv) * (heard > ear.lv ? ear.rate : ear.rate * 0.4);   // slower to sink than to rise
+          const target = -v.h * 2.4 + ear.lv * (v.h * 2.4 + v.hh * 0.45);
+          velI[i] = (velI[i] + (target - liftI[i]) * 0.06) * 0.82;
+          liftI[i] += velI[i];
+        }
+        if (mic.f) {
+          const semis = 12 * Math.log2(mic.f / 220);
+          smx += (Math.max(-1, Math.min(1, semis / 14)) - smx) * 0.1;
+          mic.ratio = Math.min(2, Math.max(0.5, mic.f / 440));
+        }
+        offX = smx * v.hw * 0.45;
+      }
+    } else {
+      if (phases.length && phaseIdx < phases.length - 1 && b >= phaseStart + phases[phaseIdx][1]) nextPhase();
+      const active = phases.length > 0;
+      prev = active ? F[phases[phaseIdx - 1][0]] : F.hidden;
+      next = active ? F[phases[phaseIdx][0]] : F.hidden;
+      rising = active && phases[phaseIdx - 1][0] === 'hidden';
+      diving = active && phases[phaseIdx][0] === 'hidden';
+      start = active ? phaseStart : -99;
+    }
+
+    for (let i = 0; i < n; i++) {
+      const pair = Math.abs(i - centre(n));                       // symmetric pairs move together
+      const delay = (diving ? centre(n) - pair : pair) * STAGGER; // rise from the middle out, dive from the edges in
+      const p = clamp01((b - start - delay) / MORPH);
+      const e = rising ? easeOutBack(p) : diving ? easeInBack(p) : smooth(p);
+      const A = prev(i, n, b, v), B = next(i, n, b, v);
+      let x = lerp(A.x, B.x, e) + offX, y = lerp(A.y, B.y, e) + lift + (['keys', 'piece', 'voice'].includes(mode) && conduct ? liftI[i] : 0), s = lerp(A.scale, B.scale, e);
+      // a nudge from the linked piece: she rises for a moment, then eases back
+      if (link.nudge[i] > 0.01) { y += link.nudge[i] * v.h * 1.6; link.nudge[i] *= 0.985; }
+      // gone to the mushrooms: she floats down through the clouds and under the world
+      const dsc = descent(i, v);
+      if (dsc) { y += dsc.dy; }
+      choir[i].material.uniforms.opacity.value = dsc ? dsc.alpha : 1;
+      // bound to a mushroom: her life is its life — she stands above it, as high as it has grown
+      let mu = isBound() ? boundState.m[i % 3] : null;
+      const sm = mu && boundState.smooth[i % 3];
+      if (mu && sm) {
+        sm.life += (sm.tLife - sm.life) * 0.06;
+        if (sm.tSx != null) sm.sx = sm.sx == null ? sm.tSx : sm.sx + (sm.tSx - sm.sx) * 0.06;
+        mu = { ...mu, life: sm.life, sx: sm.sx };
+      }
+      if (mu) {
+        const lifeE = mu.life * mu.life * (3 - 2 * mu.life);
+        // dormant: head and wing-tips just showing in the cloud line; mature: full height above it
+        const baseY = SURFACE - v.h * 0.75 + lifeE * (v.h * 0.75 + v.h * 0.55 + v.hh * 0.18);
+        const pitchLift = mode === 'piece' ? Math.max(0, liftI[i] + v.h * 0.35) * 0.35 * lifeE : 0;   // a little of the note's height on top
+        y = baseY + pitchLift + Math.sin(b * Math.PI + i * Math.PI / PHI) * v.h * 0.03 * lifeE;
+        if (mu.sx != null) x = (mu.sx - 0.5) * 2 * v.hw * 0.92 + (mode === 'mouse' ? offX * 0.3 : 0);
+        choir[i].material.uniforms.opacity.value = Math.min(1, 0.45 + mu.life * 0.9);
+      }
+      // idle bob, phase-shifted by φ so it reads as a travelling wave (figures stay upright)
+      const settled = p >= 1 && !diving;
+      const sway = settled ? 1 : e * (1 - (diving ? e : 0));
+      y += Math.sin(b * Math.PI + i * Math.PI / PHI) * v.h * 0.03 * sway;
+
+      const m = choir[i];
+      const h = v.h * s;
+      m.scale.set(h * asset.ar * (i < centre(n) ? -1 : 1), h, 1);   // left half mirrored: pairs face each other
+      m.position.set(camX + x, camY + y, z);
+      m.material.uniforms.sub.value = dsc ? 0 : clamp01((SURFACE - (y + h * 0.5)) / (v.h * 0.9));
+      { const bottom = y - h * 0.5;                                   // sprite uv 0 = her feet
+        m.material.uniforms.fadeLo.value = (SURFACE - v.h * 0.05 - bottom) / h;
+        m.material.uniforms.fadeHi.value = (SURFACE + v.h * 0.32 - bottom) / h; }
+
+      // pose: closed while submerged, opening as they rise, then a slow flap in canon once out
+      const top = y + h * 0.5, now = performance.now();
+      const out = dsc ? 0.15 : mu ? clamp01(0.1 + mu.life * 0.9) : clamp01((top - SURFACE) / (v.h * 0.9));
+      const flap = dsc ? 0                                                        // wings folded on the way down
+        : mode === 'piece' ? piece.energy[i]                                     // in the piece, the note's weight opens the wings
+        : 0.5 - 0.5 * Math.cos(b * Math.PI / 2 + pair * Math.PI / PHI);         // otherwise one flap every 4 beats
+      const nf = asset.frames.length;
+      m.material.uniforms.map.value = asset.frames[Math.round(out * (0.35 + 0.65 * flap) * (nf - 1))].tex;
+
+      // pop detection: the head breaking the cloud line (with hysteresis) is what sings
+      if (dsc) { /* no pops while she's away */ }
+      else if (under[i] && top > SURFACE + v.h * 0.1) {
+        under[i] = false;
+        if (now - (lastPop[i] || 0) > 250) { lastPop[i] = now; pluck(i, n, x / v.hw, 'up'); if (link.es && mode !== 'piece') linkSend({ type: 'event', kind: 'surface', swimmer: i, pan: Math.round(x / v.hw * 100) / 100 }); }
+      } else if (!under[i] && top < SURFACE - v.h * 0.1) {
+        under[i] = true;
+        if (now - (lastPop[i] || 0) > 250) { lastPop[i] = now; pluck(i, n, x / v.hw, 'down'); }
+      }
+    }
+    // routine finished → rest, then auto-cue
+    if (!conduct && phases.length && phaseIdx === phases.length - 1 && b >= restUntil) {
+      phases = [];
+      if ($('auto').checked) cue();
+    }
+  }
+
+  function updateLead(b) {
+    if (!lead) return;
+    const pos = $('leadPos').value;
+    lead.visible = halo.visible = pos !== 'none' && !!asset;
+    if (!lead.visible) return;
+    const v = view(D_LEAD);
+    const h = v.hh * 0.55;
+    const gx = v.hw * (2 / PHI - 1);                    // golden section of the width
+    const x = pos === 'left' ? -gx : pos === 'right' ? gx : 0;
+    const y = SURFACE + h * 0.5 + v.hh * 0.22 + Math.sin(b * Math.PI / 4) * v.hh * 0.025;   // floats above the choir
+    lead.scale.set(h * asset.ar * (pos === 'left' ? -1 : 1), h, 1);
+    lead.position.set(camera.position.x * FOLLOW + x, camera.position.y * FOLLOW + y, camera.position.z - D_LEAD);
+    lead.material.uniforms.sub.value = 0;
+    lead.material.uniforms.map.value = asset.frames[Math.round((0.5 - 0.5 * Math.cos(b * Math.PI / 4)) * (asset.frames.length - 1))].tex;
+    halo.visible = $('halo').checked;
+    halo.scale.set(h * PHI, h * PHI, 1);
+    halo.position.set(lead.position.x, lead.position.y + h * 0.1, lead.position.z - 2);
+  }
+
+  /* ---- audio: one little voice per surfacing swimmer ----
+     Two styles — a toddler's soft "ow!" and a Bulgarian folk choir voice. Samples come from the
+     ElevenLabs sound-effects API (cached per style in localStorage) or a Web Audio formant synth. */
+  const STYLES = {
+    meow: {
+      cache: 'duality-meows-v2', seconds: 1.5, influence: 0.5,
+      ratios: [1, 3 / 2, 4 / 3, 2, 3 / 4, 2 / 3],
+      prompts: [
+        "A single human voice singing the word 'meow' a cappella on one clear held note, like a choir singer, clean studio recording, no instruments, no reverb",
+        "A playful human voice singing 'meow' a cappella, short and bright, a rising note, clean studio recording, no instruments",
+        "A soft human voice singing 'meeoow' a cappella, gentle and falling, choral tone, clean studio recording, no instruments"
+      ],
+      synth: synthMeow
+    },
+    bass: {
+      cache: 'duality-bass-v1', seconds: 1.5, influence: 0.6,
+      // low intervals: root, fifth, fourth, octave up, fifth below, octave below
+      ratios: [1, 3 / 2, 4 / 3, 2, 3 / 4, 1 / 2],
+      prompts: [
+        "A single deep electric bass guitar note plucked once, warm and round with a heavy sub, clean dry recording, no other instruments, no music",
+        "A deep 808-style sub bass hit, one note, short pitch drop then a long warm sustain, clean, no other instruments",
+        "A single low note plucked on an upright double bass, woody and deep, dry close recording, no other instruments"
+      ],
+      synth: synthBass
+    },
+    hey: {
+      cache: 'duality-hey-v1', seconds: 1.0, influence: 0.6,
+      ratios: [1, 5 / 4, 3 / 2, 2, 4 / 3, 3 / 4],
+      prompts: [
+        "A single bright, friendly voice saying 'hey!' playfully, like spotting a friend, short and cheerful, close dry recording, no background noise, no music",
+        "A cheerful young woman's voice calling 'hey!' with a little lift at the end, warm and amused, dry close recording, no background noise",
+        "A soft, excited voice saying 'hey!' almost in a whisper-shout, sweet and surprised, dry close recording, no background noise, no music"
+      ],
+      synth: synthHey
+    },
+    ow: {
+      cache: 'duality-ow-v1', seconds: 1.0, influence: 0.6,
+      // sweet intervals for a chorus of little voices: unison, major third, fifth, octave, fourth
+      ratios: [1, 5 / 4, 3 / 2, 2, 4 / 3, 3 / 4],
+      prompts: [
+        "A small toddler softly saying 'ow!' as if gently pinched, cute and surprised, soft high-pitched child voice, not upset, dry close recording, no background noise, no music",
+        "A cute toddler saying a soft, drawn-out 'owww' like a tiny pinch, sweet and a little giggly, high child voice, dry recording, no background noise",
+        "A little kid quietly going 'ow' in a soft cute surprised way, very short, gentle, high-pitched toddler voice, dry recording, no background noise"
+      ],
+      synth: synthOw
+    },
+    bulgarian: {
+      cache: 'duality-bulgarian-v1', seconds: 2.5, influence: 0.55,
+      // Bulgarian diaphony: a drone, the voice a major second above it (the signature clash), then fifths and fourths
+      ratios: [1, 9 / 8, 3 / 2, 4 / 3, 2, 3 / 4],
+      prompts: [
+        "A single female voice singing one held open-throated note in the Bulgarian folk choir style, bright, piercing, chest voice, a cappella, no vibrato at first then a shimmer, dry studio recording, no instruments",
+        "A single Bulgarian folk choir woman's voice singing a short ornamented 'eeh-ah' with a quick upward scoop, bright and nasal, a cappella, dry studio recording, no instruments",
+        "A single female voice singing a long open 'ah' in the style of Le Mystère des Voix Bulgares, powerful and clear, a cappella, dry studio recording, no instruments"
+      ],
+      synth: synthBulgarian
+    }
+  };
+  // which style a given swimmer sings: 'mixed' alternates across the line
+  const MIX = ['meow', 'bass', 'hey', 'ow', 'bulgarian'];
+  // 'vox' is the tape-vox sampler (loaded with the piece), 'ensemble' is vox · meow · bass across the line
+  const styleFor = i => {
+    const v = $('style').value;
+    return v === 'mixed' ? MIX[i % MIX.length] : v === 'ensemble' ? ['piano', 'meow', 'bass'][i % 3] : v;
+  };
+  const stylesInUse = () => {
+    const v = $('style').value;
+    return v === 'mixed' ? MIX : v === 'ensemble' ? ['meow', 'bass'] : STYLES[v] ? [v] : [];
+  };
+  const KEY_KEY = 'duality-xi-key';
+  const audio = { ctx: null, on: false, master: null, bufs: { meow: [], bass: [], hey: [], ow: [], bulgarian: [] }, busy: false, muted: false };
+  const sndStatus = t => { $('snd').textContent = t; };
+
+  function ensureCtx() {
+    if (audio.ctx) return audio.ctx;
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const master = ctx.createGain(); master.gain.value = 0.8;
+    // a small hall: noise impulse with an exponential tail, mixed in quietly
+    const len = ctx.sampleRate * 1.6, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+    const conv = ctx.createConvolver(); conv.buffer = ir;
+    const wet = ctx.createGain(); wet.gain.value = 0.28;
+    master.connect(ctx.destination); master.connect(conv); conv.connect(wet); wet.connect(ctx.destination);
+    audio.ctx = ctx; audio.master = master;
+    return ctx;
+  }
+
+  const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0)).buffer;
+
+  async function fetchPlucks(key, st) {
+    const out = [];
+    for (let i = 0; i < st.prompts.length; i++) {
+      sndStatus(`♪ generating ${i + 1}/${st.prompts.length}…`);
+      const r = await fetch('https://api.elevenlabs.io/v1/sound-generation', {
+        method: 'POST',
+        headers: { 'xi-api-key': key, 'content-type': 'application/json' },
+        body: JSON.stringify({ text: st.prompts[i], duration_seconds: st.seconds, prompt_influence: st.influence })
+      });
+      if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 160)}`);
+      out.push(await r.arrayBuffer());
+    }
+    return out;
+  }
+  async function loadPlucks(force) {
+    const names = stylesInUse();
+    for (const name of names) await loadStyle(name, force);
+    if (names.length > 1) {
+      const have = names.filter(n => audio.bufs[n].length);
+      sndStatus(have.length === names.length ? `♪ elevenlabs ${names.join(' + ')}` : have.length ? `♪ elevenlabs ${have.join(' + ')} · synth ${names.filter(n => !have.includes(n)).join(' + ')}` : `♪ synth ${names.join(' + ')}${$('xiKey').value.trim() ? '' : ' (no elevenlabs key)'}`);
+    }
+  }
+  async function loadStyle(name, force) {
+    if (audio.busy) return;
+    audio.busy = true;
+    const st = STYLES[name];
+    try {
+      const ctx = ensureCtx();
+      let raw = null;
+      if (!force) { try { const c = localStorage.getItem(st.cache); if (c) raw = JSON.parse(c).map(unb64); } catch {} }
+      if (!raw) {
+        const key = $('xiKey').value.trim();
+        if (!key) { sndStatus(`♪ synth ${name} (no elevenlabs key)`); audio.bufs[name] = []; return; }
+        raw = await fetchPlucks(key, st);
+        try { localStorage.setItem(st.cache, JSON.stringify(raw.map(b64))); } catch {}
+      }
+      audio.bufs[name] = await Promise.all(raw.map(b => ctx.decodeAudioData(b.slice(0))));
+      sndStatus(`♪ elevenlabs ${name} (${audio.bufs[name].length})`);
+    } catch (e) {
+      audio.bufs[name] = [];
+      sndStatus(`♪ synth ${name} · elevenlabs failed: ${e.message}`);
+    } finally { audio.busy = false; }
+  }
+
+  function playBuffer(buf, ratio, pan, gain, when) {
+    const ctx = audio.ctx, t = Math.max(ctx.currentTime, when || 0);
+    const src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = ratio;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.02);
+    const p = ctx.createStereoPanner(); p.pan.value = pan;
+    src.connect(g).connect(p).connect(audio.voiceOut || audio.master);
+    src.start(t);
+  }
+  function synthMeow(ratio, pan, gain) {
+    // "mee-ow": a sawtooth with a pitch arc, through a band-pass that slides from an "ee" to an "ow" formant
+    // rounder now: a triangle wave (no buzz), a whisper of vibrato, and the top end rolled off
+    const ctx = audio.ctx, t = ctx.currentTime, f0 = 392 * ratio;
+    const osc = ctx.createOscillator(); osc.type = 'triangle';
+    osc.frequency.setValueAtTime(f0 * 0.85, t);
+    osc.frequency.exponentialRampToValueAtTime(f0 * 1.15, t + 0.18);
+    osc.frequency.exponentialRampToValueAtTime(f0 * 0.75, t + 0.75);
+    const vib = ctx.createOscillator(), vibG = ctx.createGain(); vib.frequency.value = 5; vibG.gain.value = f0 * 0.005;
+    vib.connect(vibG).connect(osc.frequency);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.6;
+    bp.frequency.setValueAtTime(2000, t); bp.frequency.exponentialRampToValueAtTime(700, t + 0.65);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2800;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain * 0.6, t + 0.06);
+    g.gain.setValueAtTime(gain * 0.6, t + 0.4); g.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+    const p = ctx.createStereoPanner(); p.pan.value = pan;
+    osc.connect(bp).connect(lp).connect(g).connect(p).connect(audio.voiceOut || audio.master);
+    osc.start(t); vib.start(t); osc.stop(t + 0.9); vib.stop(t + 0.9);
+  }
+  function synthBass(ratio, pan, gain) {
+    // sub pluck: a sine with a quick pitch drop (808-ish) under a saw through a closing low-pass for the "pluck"
+    const ctx = audio.ctx, t = ctx.currentTime, f0 = 55 * ratio, dur = 1.3;   // A1 as the centre voice
+    const p = ctx.createStereoPanner(); p.pan.value = pan * 0.4;              // bass stays near the middle
+    const out = ctx.createGain(); out.gain.value = gain;
+    out.connect(p).connect(audio.voiceOut || audio.master);
+    const sub = ctx.createOscillator(); sub.type = 'sine';
+    sub.frequency.setValueAtTime(f0 * 2.2, t); sub.frequency.exponentialRampToValueAtTime(f0, t + 0.06);
+    const sg = ctx.createGain();
+    sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(0.9, t + 0.01); sg.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    sub.connect(sg).connect(out); sub.start(t); sub.stop(t + dur + 0.05);
+    const saw = ctx.createOscillator(); saw.type = 'sawtooth'; saw.frequency.value = f0;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 6;
+    lp.frequency.setValueAtTime(f0 * 14, t); lp.frequency.exponentialRampToValueAtTime(f0 * 2, t + 0.35);
+    const wg = ctx.createGain();
+    wg.gain.setValueAtTime(0, t); wg.gain.linearRampToValueAtTime(0.35, t + 0.008); wg.gain.exponentialRampToValueAtTime(0.0005, t + 0.6);
+    saw.connect(lp).connect(wg).connect(out); saw.start(t); saw.stop(t + 0.7);
+  }
+  function synthHey(ratio, pan, gain) {
+    // "hey!": a breathy 'h' onset, then "e" gliding to "y", pitch rising into the '!' and settling
+    const ctx = audio.ctx, t = ctx.currentTime, f0 = 400 * ratio, dur = 0.38;
+    const p = ctx.createStereoPanner(); p.pan.value = pan;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(gain * 0.5, t + 0.05);
+    env.gain.setValueAtTime(gain * 0.5, t + 0.2); env.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    env.connect(p).connect(audio.voiceOut || audio.master);
+    const sum = ctx.createGain(); sum.gain.value = 0.3;
+    for (const [fe, fy, g, q] of [[560, 330, 1.0, 7], [1900, 2400, 0.55, 8], [2700, 3100, 0.25, 9]]) {   // "e" → "y"
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q;
+      bp.frequency.setValueAtTime(fe, t); bp.frequency.setValueAtTime(fe, t + 0.14); bp.frequency.exponentialRampToValueAtTime(fy, t + 0.3);
+      const fg = ctx.createGain(); fg.gain.value = g;
+      sum.connect(bp).connect(fg).connect(env);
+    }
+    for (const det of [-3, 4]) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = det;
+      o.frequency.setValueAtTime(f0 * 0.95, t + 0.03);
+      o.frequency.exponentialRampToValueAtTime(f0 * 1.25, t + 0.16);     // up into the "!"
+      o.frequency.exponentialRampToValueAtTime(f0 * 1.05, t + dur);
+      const og = ctx.createGain(); og.gain.setValueAtTime(0, t); og.gain.linearRampToValueAtTime(1, t + 0.06);   // voice comes in after the 'h'
+      o.connect(og).connect(sum); o.start(t); o.stop(t + dur + 0.05);
+    }
+    // the 'h': a short breath before the vowel
+    const nb = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate), nd = nb.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * (1 - i / nd.length) * 0.5;
+    const n = ctx.createBufferSource(); n.buffer = nb;
+    const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 1800; nf.Q.value = 0.8;
+    n.connect(nf).connect(env); n.start(t);
+  }
+  function synthOw(ratio, pan, gain) {
+    // a toddler's soft "ow!": high little voice, pitch pops up then droops, vowel glides from "a" to "w"
+    const ctx = audio.ctx, t = ctx.currentTime, f0 = 520 * ratio, dur = 0.42;
+    const p = ctx.createStereoPanner(); p.pan.value = pan;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(gain * 0.45, t + 0.035);
+    env.gain.setValueAtTime(gain * 0.45, t + 0.16); env.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    env.connect(p).connect(audio.voiceOut || audio.master);
+    // formants: "a" (open, surprised) sliding to "w" (rounded), small vocal tract so everything sits high
+    const sum = ctx.createGain(); sum.gain.value = 0.3;
+    for (const [fa, fw, g, q] of [[950, 450, 1.0, 7], [1600, 950, 0.5, 8], [3100, 2500, 0.2, 9]]) {
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = q;
+      bp.frequency.setValueAtTime(fa, t); bp.frequency.setValueAtTime(fa, t + 0.1); bp.frequency.exponentialRampToValueAtTime(fw, t + 0.3);
+      const fg = ctx.createGain(); fg.gain.value = g;
+      sum.connect(bp).connect(fg).connect(env);
+    }
+    for (const det of [-3, 4]) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = det;
+      o.frequency.setValueAtTime(f0 * 0.92, t);
+      o.frequency.exponentialRampToValueAtTime(f0 * 1.18, t + 0.07);     // the little "!"
+      o.frequency.exponentialRampToValueAtTime(f0 * 0.78, t + dur);      // …and the droop
+      o.connect(sum); o.start(t); o.stop(t + dur + 0.05);
+    }
+    // breathiness
+    const nb = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate), nd = nb.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * 0.08;
+    const n = ctx.createBufferSource(); n.buffer = nb;
+    const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 2600; nf.Q.value = 1.2;
+    n.connect(nf).connect(env); n.start(t);
+  }
+  function synthBulgarian(ratio, pan, gain) {
+    // open-throated voice: two detuned saws through three vowel formants ("ah", bright), an upward scoop in,
+    // delayed vibrato, and a held tail — the Bulgarian choir sound in miniature
+    const ctx = audio.ctx, t = ctx.currentTime, f0 = 440 * ratio, dur = 1.6;
+    const p = ctx.createStereoPanner(); p.pan.value = pan;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t); env.gain.linearRampToValueAtTime(gain * 0.5, t + 0.06);
+    env.gain.setValueAtTime(gain * 0.5, t + dur - 0.35); env.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    env.connect(p).connect(audio.voiceOut || audio.master);
+    const sum = ctx.createGain(); sum.gain.value = 0.35;
+    for (const [fc, g, q] of [[760, 1.0, 9], [1450, 0.55, 11], [2900, 0.3, 12]]) {   // bright "ah": F1 F2 F3
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fc; bp.Q.value = q;
+      const fg = ctx.createGain(); fg.gain.value = g;
+      sum.connect(bp).connect(fg).connect(env);
+    }
+    const vib = ctx.createOscillator(), vibG = ctx.createGain();
+    vib.frequency.value = 5.6; vibG.gain.setValueAtTime(0, t); vibG.gain.linearRampToValueAtTime(f0 * 0.012, t + 0.55);
+    vib.connect(vibG);
+    for (const det of [-4, 5]) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = det;
+      o.frequency.setValueAtTime(f0 * 0.9, t); o.frequency.exponentialRampToValueAtTime(f0, t + 0.12);   // the scoop
+      vibG.connect(o.frequency);
+      o.connect(sum); o.start(t); o.stop(t + dur + 0.05);
+    }
+    vib.start(t); vib.stop(t + dur + 0.05);
+  }
+  function pluck(i, n, pan, dir, force) {
+    if (!audio.on || !audio.ctx || (playMode() === 'piece' && !force)) return;
+    let name = force ? 'meow' : styleFor(i);      // answers to your voice are always meows
+    const pair = Math.abs(i - centre(n));
+    pan = Math.max(-1, Math.min(1, pan));
+    if ((name === 'piano' || name === 'toy') && piece.s && piece.s[name === 'piano' ? 'ep' : 'toy'].ready) {
+      const ratio = STYLES.meow.ratios[pair % 6] * (dir === 'down' ? 2 / 3 : 1) * (playMode() === 'voice' ? mic.ratio : 1);
+      const smp = piece.s[name === 'piano' ? 'ep' : 'toy'];
+      smp.play((name === 'piano' ? 261.63 : 523.25) * ratio, audio.ctx.currentTime, { vel: dir === 'down' ? 0.35 : 0.8, dur: 1.4, release: 0.6, pan });
+      return;
+    }
+    if (name === 'piano' || name === 'toy') name = 'meow';
+    if (name === 'vox') {
+      // tape vox: a short sung note off B3, in the same intervals
+      if (piece.s && piece.s.vox.ready) {
+        const ratio = STYLES.meow.ratios[pair % 6] * (dir === 'down' ? 2 / 3 : 1) * (playMode() === 'voice' ? mic.ratio : 1);
+        piece.s.vox.play(246.94 * ratio, audio.ctx.currentTime, { vel: dir === 'down' ? 0.3 : 0.7, dur: 1.1, attack: 0.12, release: 0.5, pan });
+        return;
+      }
+      name = 'meow';
+    }
+    const st = STYLES[name] || STYLES.meow; if (!STYLES[name]) name = 'meow';
+    const ratio = st.ratios[pair % st.ratios.length] * (dir === 'down' ? 2 / 3 : 1) * (playMode() === 'voice' ? mic.ratio : 1);
+    const gain = dir === 'down' ? 0.35 : 0.8;
+    const bufs = audio.bufs[name];
+    if ($('voice').value === 'eleven' && bufs.length) playBuffer(bufs[(pair + i) % bufs.length], ratio, pan, gain);
+    else st.synth(ratio, pan, gain);
+  }
+
+  /* ---- the piece: a generative a cappella trio (acapella.js) sung by the swimmers ----
+     alto = left, soprano = centre, bass = right. Pitch is height: the higher the note, the higher she floats. */
+  const EP_DIR = 'samples/ep/';
+  const EP_ROOTS = [36, 43, 50, 57, 64, 71, 77, 84, 91, 96];
+  const TOY_DIR = 'samples/toy/';
+  // toy piano sounds three octaves above its mapped root; 'tuning' is the preset's per-sample correction
+  const TOY = [['g1_c', 31, 0.24], ['bb1_c', 34, -0.6], ['c1_c', 36, -0.64], ['d1_c', 38, -0.51], ['eb1_c', 40, 0.29],
+               ['f1_d', 41, -0.34], ['fx2_c', 42, -0.41], ['ab2_b', 43, -1.26], ['bb2_c', 46, -0.32], ['b2_c', 47, -0.16]];
+  const VOX_DIR = 'samples/vox/';
+  const SAMPLE_EXT = '.mp3';   // the studio plays the wavs; build-world.sh transcodes them to .mp3 for the web and flips this
+  const SAMPLE_ITEMS = [
+    ...EP_ROOTS.flatMap(r => [1, 2, 3].map(k => ({ key: `ep_${r}_${k}`, path: `${EP_DIR}EP09_P1_${String(r).padStart(3, '0')}_RR_${k}${SAMPLE_EXT}` }))),
+    ...TOY.map(([n]) => ({ key: `toy_${n}`, path: `${TOY_DIR}${n}${SAMPLE_EXT}` })),
+    { key: 'prep1', path: `${TOY_DIR}prep1_c${SAMPLE_EXT}` }, { key: 'prep2', path: `${TOY_DIR}prep2_c${SAMPLE_EXT}` },
+    { key: 'vox', path: `${VOX_DIR}B2 For Synth Kontakt Synth Exp1${SAMPLE_EXT}` },
+    { key: 'noise', path: `${VOX_DIR}Noise${SAMPLE_EXT}` }, { key: 'stop', path: `${VOX_DIR}Stop${SAMPLE_EXT === '.wav' ? '.WAV' : SAMPLE_EXT}` }
+  ];
+  const SYNTH_BASE = { meow: 392, bass: 55, hey: 400, ow: 520, bulgarian: 440 };   // each synth's f0 at ratio 1
+  const piece = { engine: null, s: null, loaded: false, loading: false, bed: null, energy: [0, 0, 0], out: null };
+  // every layer has its own fader so a toggle is heard the instant it's flipped
+  function layers() {
+    if (piece.out) return piece.out;
+    const ctx = ensureCtx(), inst = musicGain();
+    const mk = (to, v = 1) => { const g = ctx.createGain(); g.gain.value = v; g.connect(to); return g; };
+    piece.out = { part: [mk(audio.master), mk(audio.master), mk(audio.master)], ep: mk(inst), toy: mk(inst) };
+    return piece.out;
+  }
+  const fade = (g, on) => { const t = audio.ctx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.08); };
+
+  const LITE = new URLSearchParams(location.search).has('lite');   // for the web: no sample libraries, synth voices only
+  async function loadPiece() {
+    if (piece.loaded || piece.loading) return;
+    piece.loading = true;
+    const ctx = ensureCtx();
+    const bufs = LITE ? {} : await Acapella.loadBuffers(ctx, SAMPLE_ITEMS, (d, n) => sndStatus(`♪ loading samples ${d}/${n}`));
+    const inst = musicGain(), L = layers();          // accompaniment rides the music volume slider
+    const voxLp = ctx.createBiquadFilter(); voxLp.type = 'lowpass'; voxLp.frequency.value = 3800; voxLp.connect(audio.voiceOut || audio.master);
+    const vox = new Acapella.Sampler(ctx, voxLp);
+    vox.add(bufs.vox, 47, { loop: [134007 / 48000, 424949 / 48000], offset: 12621 / 48000 });
+    const ep = new Acapella.Sampler(ctx, L.ep);
+    for (const r of EP_ROOTS) for (const k of [1, 2, 3]) ep.add(bufs[`ep_${r}_${k}`], r);
+    const toy = new Acapella.Sampler(ctx, L.toy);
+    for (const [n, root, tune] of TOY) toy.add(bufs[`toy_${n}`], root + 36 - tune);
+    const fx = new Acapella.Sampler(ctx, inst);
+    fx.add(bufs.noise, 47, { key: 'noise' }); fx.add(bufs.stop, 47, { key: 'stop' });
+    fx.add(bufs.prep1, 60, { key: 'prep1' }); fx.add(bufs.prep2, 62, { key: 'prep2' });
+    piece.s = { vox, ep, toy, fx };
+    piece.loaded = true; piece.loading = false;
+    const missing = SAMPLE_ITEMS.filter(i => !bufs[i.key]).length;
+    sndStatus(missing ? `♪ piece · ${SAMPLE_ITEMS.length - missing}/${SAMPLE_ITEMS.length} samples (serve over http for all)` : '♪ piece · samples ready');
+  }
+
+  // which timbre a part sings with
+  const voiceTimbre = part => {
+    const v = $('style').value;
+    if (v === 'ensemble') return ['piano', 'meow', 'bass'][part];
+    if (v === 'mixed') return MIX[part % MIX.length];
+    return v;
+  };
+  const mutedParts = new Set();
+  function singEvent(e) {
+    if (isUnder(e.part)) return;                       // she's with the mushrooms
+    if (isBound() && boundLife(e.part) < 0.2) return;  // her mushroom is dormant: no voice yet
+    if (link.es) linkSend({ type: 'event', kind: 'sing', part: e.part, midi: e.midi, vel: Math.round(e.vel * 100) / 100, dur: Math.round(e.dur * 100) / 100 });   // her mushroom glows
+    const ctx = audio.ctx, tb = voiceTimbre(e.part), pan = [-0.45, 0, 0.45][e.part], out = layers().part[e.part];
+    if (tb === 'vox' && piece.s.vox.ready) { piece.s.vox.play(e.freq, e.t, { vel: e.vel * 0.85, dur: e.dur, attack: 0.15, release: 0.5, pan, out }); return; }
+    if (tb === 'piano' && piece.s.ep.ready) { piece.s.ep.play(e.freq, e.t, { vel: e.vel * 0.95, dur: e.dur, release: 0.6, pan, out }); return; }
+    if (tb === 'toy' && piece.s.toy.ready) { piece.s.toy.play(e.midi < 64 ? e.freq * 2 : e.freq, e.t, { vel: e.vel * 0.8, dur: e.dur, release: 0.7, pan, out }); return; }
+    const st = STYLES[tb] || STYLES.meow, name = STYLES[tb] ? tb : 'meow';
+    const bufs = audio.bufs[name];
+    const delay = Math.max(0, (e.t - ctx.currentTime) * 1000);
+    const fire = () => {
+      audio.voiceOut = out;   // the synths and samples connect to audio.voiceOut || audio.master
+      if ($('voice').value === 'eleven' && bufs.length) playBuffer(bufs[e.part % bufs.length], Math.min(3, Math.max(0.3, e.freq / 440)), pan, e.vel * 0.8);
+      else st.synth(e.freq / SYNTH_BASE[name], pan, e.vel * 0.8);
+      audio.voiceOut = null;
+    };
+    setTimeout(fire, delay);
+    // the bass pluck is short: on long notes it keeps time, once every two beats
+    if (name === 'bass') { const step = 2 * 60 / bpm * 1000; for (let d = step; d < e.dur * 1000 - 200; d += step) setTimeout(fire, delay + d); }
+  }
+  function onPieceEvent(e) {
+    const s = piece.s; if (!s) return;
+    if (link.es) {
+      if (e.kind === 'tape') linkSend({ type: 'event', kind: 'modulate', key: { name: NOTE_PC[piece.engine.tonic % 12], pc: piece.engine.tonic % 12, mode: piece.engine.mode } });
+
+    }
+    switch (e.kind) {
+      case 'voice': singEvent(e); break;
+      case 'ep':   s.ep.play(e.freq, e.t, { vel: e.vel * (document.body.classList.contains('embed') ? 0.7 : 1), dur: e.dur, release: 0.5, pan: -0.25 }); break;   // its fader decides
+      case 'toy':  s.toy.play(e.freq, e.t, { vel: e.vel, dur: e.dur, release: 0.7, pan: 0.3 }); break;
+      case 'prep': if ($('instToy').checked) s.fx.shot(Math.random() < 0.5 ? 'prep1' : 'prep2', e.t, { vel: e.vel * 0.6, pan: 0.2 }); break;
+      case 'tape': if ($('instTape').checked) s.fx.shot('stop', e.t, { vel: 0.22, offset: 3.47, dur: 2.6 }); break;
+    }
+  }
+  async function startPiece() {
+    if (!audio.on) return;
+    await loadPiece();
+    if (playMode() !== 'piece') return;
+    stopMusic(); musStatus('♫ the piece');
+    if (!piece.engine) {
+      piece.engine = new Acapella.Engine({
+        ctx: audio.ctx, seed: +$('pieceSeed').value || 1, bpm: () => bpm,
+        sparse: document.body.classList.contains('embed'),     // in the world: voices, soft chords, little else
+        onEvent: onPieceEvent, enabled: () => ({ ep: true, toy: true, tape: $('instTape').checked })   // ep/toy always scheduled; their faders do the toggling
+      });
+    }
+    piece.engine.start();
+    if (!piece.bed && piece.s.fx.zones.find(z => z.key === 'noise') && $('instTape').checked) {
+      const z = piece.s.fx.zones.find(z => z.key === 'noise'), ctx = audio.ctx;
+      const src = ctx.createBufferSource(); src.buffer = z.buffer; src.loop = true; src.loopStart = 20286 / 48000; src.loopEnd = 192373 / 48000;
+      const g = ctx.createGain(); g.gain.value = 0.05; src.connect(g).connect(musicGain()); src.start();
+      piece.bed = { src, g };
+    }
+    main.classList.add('keyed');
+  }
+  function stopPiece() {
+    if (piece.engine) piece.engine.stop();
+    if (piece.bed) { try { piece.bed.src.stop(); } catch {} piece.bed = null; }
+    main.classList.remove('keyed');
+  }
+  function newSeed(seed) {
+    $('pieceSeed').value = seed || (1 + Math.floor(Math.random() * 99999));
+    if (piece.engine) { piece.engine.stop(); piece.engine.setSeed(+$('pieceSeed').value); if (playMode() === 'piece' && audio.on) piece.engine.start(); }
+  }
+  $('newSeedBtn').onclick = () => newSeed();
+  $('pieceSeed').onchange = () => newSeed(+$('pieceSeed').value || 1);
+  // a toggle is heard immediately: the fader moves now, and switching on plays a taste of that layer
+  function previewChord() {
+    const e = piece.engine, s = piece.s; if (!s || !s.ep.ready) return;
+    const t = audio.ctx.currentTime, fs = e ? [0, 2, 4].map(d => e.stepToFreq(7 + d)) : [261.6, 329.6, 392];
+    fs.forEach((f, j) => s.ep.play(f, t + j * 0.04, { vel: 0.5, dur: 1.6, release: 0.5, pan: -0.25 }));
+  }
+  function previewToy() {
+    const e = piece.engine, s = piece.s; if (!s || !s.toy.ready) return;
+    const t = audio.ctx.currentTime, f = e ? e.stepToFreq(14) * 2 : 1046;
+    [0, 0.16, 0.32].forEach((d, j) => s.toy.play(f * [1, 1.5, 2][j], t + d, { vel: 0.4, dur: 1, release: 0.6, pan: 0.3 }));
+  }
+  function previewPart(i) {
+    const e = piece.engine; const freq = e ? e.stepToFreq([7, 12, 0][i]) : [329.6, 523.3, 110][i];
+    singEvent({ part: i, t: audio.ctx.currentTime + 0.02, dur: 0.9, freq, midi: Math.round(69 + 12 * Math.log2(freq / 440)), vel: 0.75 });
+  }
+  $('instEp').onchange = () => { if (!audio.ctx) return; fade(layers().ep, $('instEp').checked); if ($('instEp').checked) previewChord(); };
+  $('instToy').onchange = () => { if (!audio.ctx) return; fade(layers().toy, $('instToy').checked); if ($('instToy').checked) previewToy(); };
+  $('instTape').onchange = () => { if (!$('instTape').checked && piece.bed) { try { piece.bed.src.stop(); } catch {} piece.bed = null; } else if (piece.engine && piece.engine.timer) startPiece(); };
+  $('pieceSeed').value = 1 + Math.floor(Math.random() * 99999);
+
+  const NOTE_NAMES_S = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+  /* ---- link: another piece on the bus influences this one, and hears it back ----
+     protocol in LINK.md. We publish 'state' a few times a second and 'event's as they happen;
+     what we receive bends the key, tempo, breath and colour by the influence dial, and their
+     note events are answered by a swimmer. */
+  const link = { es: null, url: '', room: '', me: 'clouds-' + Math.random().toString(36).slice(2, 7), peers: 0, partner: null, lastRx: 0, timer: null, nudge: [] };
+  const lnkStatus = t => { $('lnk').textContent = t; };
+  const influence = () => +$('influence').value / 100;
+  const NOTE_PC = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const pcOf = v => {                    // 'F#' | 'Bb' | 62 (midi) | 0–11 → pitch class
+    if (typeof v === 'number') return ((Math.round(v) % 12) + 12) % 12;
+    if (typeof v !== 'string') return null;
+    const m = v.trim().match(/^([A-Ga-g])([#b♯♭]?)/); if (!m) return null;
+    let pc = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }[m[1].toLowerCase()];
+    if (m[2] === '#' || m[2] === '♯') pc++; if (m[2] === 'b' || m[2] === '♭') pc--;
+    return (pc + 12) % 12;
+  };
+  function linkSend(msg) {
+    if (!link.es) return;
+    const body = JSON.stringify({ from: link.me, piece: 'duality-clouds', ...msg });
+    if (link.es.post) { link.es.post(body); return; }   // the local (server-less) bus
+    fetch(`${link.url}?room=${encodeURIComponent(link.room)}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body }).catch(() => {});
+  }
+  function ourState() {
+    const n = choir.length, e = piece.engine, now = audio.ctx ? audio.ctx.currentTime : 0;
+    const st = { type: 'state', hue: e && e.timer ? e.keyHue() : SKIES[$('sky').value] === SKIES.day ? 210 : 330, mode: playMode() };
+    if (e && e.timer) {
+      st.key = { name: NOTE_PC[e.tonic % 12], pc: e.tonic % 12, mode: e.mode, chord: e.chord + 1 };
+      st.bpm = bpm; st.energy = e.breath;
+      st.voices = [0, 1, 2].map(p => { const c = e.current(p, now); return c ? { part: ['alto', 'soprano', 'bass'][p], midi: c.midi, freq: Math.round(c.freq * 10) / 10, vel: Math.round(c.vel * 100) / 100 } : null; });
+    } else if (playMode() === 'voice') st.energy = Math.round(mic.level * 100) / 100;
+    const v = view(D_CHOIR); v.h = v.hh * 0.52;
+    st.swimmers = choir.map(m => Math.round(clamp01((m.position.y - camera.position.y * FOLLOW - SURFACE + v.h * 0.5) / (v.hh * 0.8)) * 100) / 100);
+    return st;
+  }
+  /* ---- the mushrooms: another piece's landscape. a mushroom dies → an angel floats down through the
+     clouds and under the world; a mushroom grows → one comes back up. (LINK.md: `mushroom` events) */
+  const under_ = [];   // per swimmer: { phase: 'down' | 'gone' | 'up', t0, from }
+  function glide(fromF, toF, dur, pan, gain = 0.5) {
+    if (!audio.on) return;
+    const ctx = audio.ctx, t = ctx.currentTime;
+    for (const [type, amp] of [['sine', 0.7], ['triangle', 0.25]]) {
+      const o = ctx.createOscillator(); o.type = type;
+      o.frequency.setValueAtTime(fromF, t); o.frequency.exponentialRampToValueAtTime(toF, t + dur);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain * amp, t + 0.3);
+      g.gain.setValueAtTime(gain * amp, t + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
+      const p = ctx.createStereoPanner(); p.pan.value = pan;
+      o.connect(lp).connect(g).connect(p).connect(audio.voiceOut || audio.master); o.start(t); o.stop(t + dur + 0.05);
+    }
+    // a Fibonacci run on the toy piano in the same direction, if it's loaded
+    if (piece.s && piece.s.toy.ready) {
+      const steps = [0, 1, 2, 3, 5, 8], dir = toF < fromF ? -1 : 1, e = piece.engine;
+      steps.forEach((k, j) => { const f = e ? e.stepToFreq(14 + dir * -1 * (5 - j) * 1) : 660 * 2 ** (dir * (j - 5) / 6); piece.s.toy.play(Math.max(300, Math.min(1800, f)), t + k * 0.18 * PHI, { vel: 0.22, dur: 0.9, release: 0.5, pan }); });
+    }
+  }
+  // spores: a plume of points rising up through the cloud line — the forest's message arriving
+  const spores = [];
+  function sporeTexture() {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.3, 'rgba(255,255,255,0.6)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(c);
+  }
+  let sporeTex = null;
+  function plume(xNorm, color, count = 60, rise = 1.0) {
+    const v = view(D_CHOIR); v.h = v.hh * 0.52;
+    sporeTex = sporeTex || sporeTexture();
+    const pos = new Float32Array(count * 3), vel = [];
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = xNorm * v.hw + (Math.random() - 0.5) * v.h * 0.9;
+      pos[i * 3 + 1] = SURFACE - v.h * (0.6 + Math.random() * 1.2);
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 30;
+      vel.push({ vy: (0.5 + Math.random()) * v.h * 0.35 * rise, vx: (Math.random() - 0.5) * v.h * 0.06, ph: Math.random() * TAU });
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const mat = new THREE.PointsMaterial({ map: sporeTex, color, size: v.h * 0.09, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, sizeAttenuation: true });
+    const pts = new THREE.Points(geo, mat); pts.renderOrder = 5; pts.frustumCulled = false;
+    scene.add(pts);
+    spores.push({ pts, vel, t0: performance.now(), life: 3800 + Math.random() * 1200 });
+  }
+  function updateSpores(dt) {
+    const camX = camera.position.x * FOLLOW, camY = camera.position.y * FOLLOW, z = camera.position.z - D_CHOIR + 10;
+    for (const sp of spores) {
+      const age = performance.now() - sp.t0, p = age / sp.life, a = sp.pts.geometry.attributes.position.array;
+      for (let i = 0; i < sp.vel.length; i++) {
+        a[i * 3] += (sp.vel[i].vx + Math.sin(age / 400 + sp.vel[i].ph) * 0.08) * dt / 16;
+        a[i * 3 + 1] += sp.vel[i].vy * dt / 1000;
+      }
+      sp.pts.geometry.attributes.position.needsUpdate = true;
+      sp.pts.position.set(camX, camY, z);
+      sp.pts.material.opacity = p < 0.15 ? p / 0.15 : Math.max(0, 1 - (p - 0.15) / 0.85) * 0.9;
+      if (p >= 1) { scene.remove(sp.pts); sp.pts.geometry.dispose(); sp.pts.material.dispose(); sp.dead = true; }
+    }
+    for (let i = spores.length - 1; i >= 0; i--) if (spores[i].dead) spores.splice(i, 1);
+  }
+
+  let lastDeath = 0, lastGrowth = 0;
+  // each species has a colour; the angel it calls takes that colour with her
+  const SPECIES_COLOR = {
+    amanita: '#e23a2e', cluster: '#d68a3c', mycena: '#d9cffc', honeyfungus: '#e2b23e',
+    psilocybin: '#8a72ff', oyster: '#f3ead6'
+  };
+  const speciesColor = msg => { const k = Object.keys(SPECIES_COLOR).find(k => new RegExp(k, 'i').test(String(msg && msg.species || ''))); return k ? SPECIES_COLOR[k] : null; };
+  const tintI = [];   // per swimmer: { to: Color, amt target }
+  function tintAngel(i, hex) {
+    // the asset is already amanita-red: red species keep the original paint, others are recoloured
+    const c = new THREE.Color(hex), hsl = {}; c.getHSL(hsl);
+    const isRedish = (hsl.h < 0.05 || hsl.h > 0.93) && hsl.s > 0.5;
+    tintI[i] = { to: c, amt: isRedish ? 0 : 1 };
+  }
+  function updateTints() {
+    for (let i = 0; i < choir.length; i++) {
+      const u = choir[i].material.uniforms, t = tintI[i]; if (!t) continue;
+      u.tint.value.lerp(t.to, 0.04); u.tintAmt.value += (t.amt - u.tintAmt.value) * 0.04;
+    }
+  }
+  const isRed = () => true;   // every species connects now — the colour carries the correspondence
+  function mushroomDied(msg) {
+    const n = choir.length; if (!n) return;
+    if (isBound()) return;                 // the angels *are* the mushrooms now — no journeys
+    if (!isRed(msg)) return;
+    // a busy landscape can lose a mushroom every few seconds — let one angel leave at most every 10 s
+    if (performance.now() - lastDeath < 10000) return; lastDeath = performance.now();
+    // one at a time: if someone is already away, the forest waits
+    if (Object.keys(under_).some(k => under_[k])) return;
+    const candidates = [...Array(n).keys()].filter(i => !under_[i]);
+    if (!candidates.length) return;
+    const i = candidates.sort((a, b) => choir[b].position.y - choir[a].position.y)[Math.floor(Math.random() * Math.min(2, candidates.length))];
+    const xn = (choir[i].position.x - camera.position.x * FOLLOW) / view(D_CHOIR).hw;
+    under_[i] = { phase: 'down', t0: performance.now() + 1400, from: choir[i].position.y };
+    const col = speciesColor(msg); if (col) tintAngel(i, col);                 // she takes the mushroom's colour
+    if (link.es) linkSend({ type: 'event', kind: 'angel', state: 'leaving', swimmer: i, part: ['alto', 'soprano', 'bass'][i % 3], x: Math.round((xn + 1) / 2 * 100) / 100, species: msg && msg.species });
+    // the glide starts on the dying mushroom's own kalimba note when the landscape sends it
+    const fromF = msg && msg.pitch ? clamp(+msg.pitch, 110, 1200) : 330 * (i % 2 ? 1.5 : 1);
+    glide(fromF, 41, 5.5, [-0.45, 0, 0.45][i % 3]);
+    lnkStatus(`⟷ ${link.room} · a mushroom died → ${['alto', 'soprano', 'bass'][i % 3]} descends`);
+  }
+  function mushroomGrew(msg) {
+    const n = choir.length;
+    if (isBound()) return;
+    if (!isRed(msg)) return;
+    if (performance.now() - lastGrowth < 6000) return; lastGrowth = performance.now();
+    const gone = [...Array(n).keys()].filter(i => under_[i] && under_[i].phase === 'gone');
+    if (!gone.length) return;
+    const i = gone[Math.floor(Math.random() * gone.length)];
+    under_[i] = { phase: 'up', t0: performance.now() };
+    const col = speciesColor(msg); if (col) tintAngel(i, col);                 // …and comes back in the new one's
+    const toF = msg && msg.pitch ? clamp(+msg.pitch, 110, 1200) : 330 * (i % 2 ? 1.5 : 1);
+    glide(41, toF, 4.5, [-0.45, 0, 0.45][i % 3], 0.4);
+    lnkStatus(`⟷ ${link.room} · a mushroom grew → ${['alto', 'soprano', 'bass'][i % 3]} returns`);
+  }
+  // per frame: returns { dy, alpha } for a swimmer, and advances her phase
+  function descent(i, v) {
+    const d = under_[i]; if (!d) return null;
+    const now = performance.now(), DOWN = 6000, UP = 5000;
+    if (d.phase === 'down') {
+      if (now < d.t0) return { dy: 0, alpha: 1 };
+      const p = clamp01((now - d.t0) / DOWN), e = p * p * (3 - 2 * p);
+      if (p >= 1) {
+        d.phase = 'gone';
+        // the meow of transcendence: as she passes from sky to ground
+        if (audio.on && audio.ctx) { const pan = [-0.45, 0, 0.45][i % 3], bufs = audio.bufs.meow; if ($('voice').value === 'eleven' && bufs.length) playBuffer(bufs[i % bufs.length], 0.8, pan, 0.9); else synthMeow(0.8, pan, 1); }
+      }
+      if (d.phase === 'gone' && p >= 1 && !d.told) { d.told = true; if (link.es) linkSend({ type: 'event', kind: 'angel', state: 'descended', swimmer: i, part: ['alto', 'soprano', 'bass'][i % 3], x: Math.round(((choir[i].position.x - camera.position.x * FOLLOW) / v.hw + 1) / 2 * 100) / 100 }); }
+      return { dy: -e * (v.hh * 1.9), alpha: 1 - Math.max(0, (p - 0.55) / 0.45) };
+    }
+    if (d.phase === 'gone') return { dy: -v.hh * 1.9, alpha: 0 };
+    const p = clamp01((now - d.t0) / UP), e = p * p * (3 - 2 * p);
+    if (p >= 1) { delete under_[i]; if (link.es) linkSend({ type: 'event', kind: 'angel', state: 'returned', swimmer: i }); return null; }
+    return { dy: -(1 - e) * (v.hh * 1.9), alpha: Math.min(1, p / 0.45) };
+  }
+  const isUnder = i => !!under_[i];
+
+  /* ---- bound: each angel is a mushroom in the forest ----
+     'bind' messages carry each mushroom's life (0 dormant … 1 mature), stage, colour and screen x.
+     While they arrive, the angels stop being a free choir: height, wings, colour, voice and position
+     all follow the mushroom. Alto = 0, soprano = 1, bass = 2. */
+  const boundState = { at: 0, m: [], smooth: [] };
+  const isBound = () => boundState.at > 0;   // once bound, stay bound: if the forest drops out, they hold still rather than flip modes
+  function onBind(msg) {
+    // one forest at a time: ignore other senders unless ours has gone quiet
+    if (boundState.from && msg.from !== boundState.from && performance.now() - boundState.at < 5000) return;
+    boundState.from = msg.from;
+    boundState.at = performance.now();
+    boundState.m = msg.mushrooms || [];
+    // ease toward the reported values so nothing snaps between reports
+    boundState.m.forEach((mu, k) => { const sm = boundState.smooth[k] || (boundState.smooth[k] = { life: mu.life, sx: mu.sx }); sm.tLife = mu.life; sm.tSx = mu.sx; });
+    for (const mu of boundState.m) if (mu.color && choir[mu.i]) { const t = tintI[mu.i]; if (!t || t.to.getHexString() !== new THREE.Color(mu.color).getHexString()) tintAngel(mu.i, mu.color); }
+  }
+  const boundLife = i => { const mu = boundState.m[i % 3]; return mu ? mu.life : 1; };
+
+  function onLinkMessage(msg) {
+    if (!msg || msg.from === link.me) return;
+    if (msg.type === 'bind') { onBind(msg); return; }
+    if (msg.type === 'presence') { link.peers = msg.peers; lnkStatus(`⟷ ${link.room} · ${Math.max(0, msg.peers - 1)} other${msg.peers === 2 ? '' : 's'}`); return; }
+    link.lastRx = performance.now(); link.partner = { ...(link.partner || {}), ...msg };
+    const inf = influence(); if (!inf) return;
+    const e = piece.engine;
+    // colour: their hue bleeds in from the right
+    if (msg.hue != null) { main.style.setProperty('--partnerhue', Math.round(+msg.hue)); $('partnerVeil').classList.add('on'); $('partnerVeil').style.opacity = 0.35 * inf; }
+    if (msg.type === 'state' || msg.type == null) {
+      // key: drift into their key at a phrase boundary
+      const pc = msg.key ? pcOf(msg.key.pc ?? msg.key.name ?? msg.key) : msg.pitch != null ? pcOf(69 + 12 * Math.log2(+msg.pitch / 440)) : null;
+      if (e && pc != null) e.pull(pc, msg.key && msg.key.mode, 0.35 + 0.65 * inf);
+      // tempo: creep toward theirs
+      if (msg.bpm) { const nb = bpm + (clamp(+msg.bpm, 30, 160) - bpm) * 0.04 * inf; if (Math.abs(nb - bpm) > 0.05) { $('bpm').value = Math.round(nb); setBpm(nb); } }
+      // energy: their activity pulls our breath
+      if (e && msg.energy != null) e.nudgeBreath(clamp01(+msg.energy), 0.08 * inf);
+    }
+    if (msg.type === 'event' || msg.kind === 'mushroom' || msg.mushroom) {
+      const k = (msg.kind || '').toLowerCase(), st = String(msg.state || msg.mushroom || msg.event || '').toLowerCase();
+      if (k === 'mushroom' || msg.mushroom) {
+        if (/die|dead|death|wither|decay|gone/.test(st)) mushroomDied(msg);
+        else if (/grow|grew|born|spawn|sprout|new|alive/.test(st)) mushroomGrew(msg);
+        return;
+      }
+    }
+    if (msg.type === 'event') {
+      // a note from their side: one swimmer answers (a surfacing nudge + a note in our key on the toy piano)
+      const n = choir.length; if (!n) return;
+      const i = Math.floor(Math.random() * n);
+      link.nudge[i] = Math.max(link.nudge[i] || 0, 0.6 + 0.4 * inf);
+      if (audio.on && piece.s && piece.s.toy.ready && e) {
+        const f = msg.pitch ? clamp(+msg.pitch, 200, 1800) : e.stepToFreq(7 + Math.floor(Math.random() * 7));
+        piece.s.toy.play(f, audio.ctx.currentTime + PHI * 0.1, { vel: 0.3 * inf, dur: 1, release: 0.6, pan: 0.4 });
+      } else if (audio.on && playMode() !== 'piece') pluck(i, n, 0.4, 'up');
+    }
+  }
+  // the stream: an EventSource on the relay, or — when the url is "local" — a BroadcastChannel stand-in, so world.html
+  // and both pieces can run from one static host with no server at all (same origin, same room)
+  function openBus(url, room) {
+    if (url !== 'local') return new EventSource(`${url}?room=${encodeURIComponent(room)}`);
+    const bc = new BroadcastChannel('duality-bus-' + room);
+    const s = { close: () => bc.close(), post: body => bc.postMessage(body), onopen: null, onerror: null, onmessage: null };
+    bc.onmessage = ev => s.onmessage && s.onmessage({ data: ev.data });
+    setTimeout(() => s.onopen && s.onopen(), 0);
+    return s;
+  }
+  function linkConnect() {
+    if (link.es) { link.es.close(); link.es = null; clearInterval(link.timer); lnkStatus('⟷ off'); $('linkBtn').textContent = 'connect'; $('partnerVeil').classList.remove('on'); return; }
+    link.url = ($('linkUrl').value.trim() || `${location.origin}/bus`).replace(/\/$/, '');
+    link.room = $('linkRoom').value.trim() || 'duality';
+    try {
+      link.es = openBus(link.url, link.room);
+      link.es.onmessage = ev => { try { onLinkMessage(JSON.parse(ev.data)); } catch {} };
+      link.es.onerror = () => lnkStatus(`⟷ ${link.room} · reconnecting…`);
+      link.es.onopen = () => lnkStatus(`⟷ ${link.room} · listening`);
+      $('linkBtn').textContent = 'disconnect';
+      link.timer = setInterval(() => { if (asset) linkSend(ourState()); }, 400);
+      try { localStorage.setItem('duality-link', JSON.stringify({ url: link.url, room: link.room })); } catch {}
+    } catch (e) { lnkStatus(`⟷ failed: ${e.message}`); link.es = null; }
+  }
+  $('linkBtn').onclick = linkConnect;
+  try { const saved = JSON.parse(localStorage.getItem('duality-link') || 'null'); if (saved) { $('linkUrl').value = saved.url; $('linkRoom').value = saved.room; } } catch {}
+  if (!$('linkUrl').value) $('linkUrl').value = location.protocol.startsWith('http') ? `${location.origin}/bus` : 'http://localhost:8765/bus';
+
+  /* ---- backdrop: gothic lofi organ, from the ElevenLabs music API or a synth organ ---- */
+  const MUSIC_PROMPT = 'Gothic lofi organ music, slow jazzy minor chords with lush extensions, ethereal and haunting, ' +
+    'a vampire cathedral at dusk, dusty vinyl crackle, tape wobble, dreamy reverb, gentle brushed drums far away, ' +
+    'instrumental, no vocals, loopable, 70 bpm';
+  const MUSIC_KEY = 'duality-music-v1';
+  const music = { buffer: null, src: null, gain: null, synth: null, busy: false };
+  const musStatus = t => { $('mus').textContent = t; };
+  function musicGain() {
+    if (!music.gain) {
+      const ctx = ensureCtx();
+      music.gain = ctx.createGain();
+      // lofi: roll off the top, soften the transients
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6500; lp.Q.value = 0.5;
+      music.gain.connect(lp).connect(ctx.destination);
+    }
+    music.gain.gain.value = (+$('musicVol').value / 100) ** 1.5;
+    return music.gain;
+  }
+  function stopMusic() {
+    if (music.src) { try { music.src.stop(); } catch {} music.src = null; }
+    if (music.synth) { music.synth.stop(); music.synth = null; }
+  }
+  async function fetchMusic(key) {
+    musStatus('♫ composing… (~1 min)');
+    const r = await fetch('https://api.elevenlabs.io/v1/music', {
+      method: 'POST',
+      headers: { 'xi-api-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: MUSIC_PROMPT, music_length_ms: 60000 })
+    });
+    if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 160)}`);
+    return r.arrayBuffer();
+  }
+  async function startMusic(force) {
+    stopMusic();
+    const mode = $('music').value;
+    if (playMode() === 'piece' && audio.on) { musStatus('♫ the piece'); return; }
+    if (mode === 'off' || !audio.on) { musStatus('♫ off'); return; }
+    const ctx = ensureCtx(), out = musicGain();
+    if (mode === 'synth') { music.synth = synthOrgan(out); musStatus('♫ synth organ'); return; }
+    if (music.busy) return;
+    music.busy = true;
+    try {
+      let raw = null;
+      if (!force && !music.buffer) { try { const c = localStorage.getItem(MUSIC_KEY); if (c) raw = unb64(c); } catch {} }
+      if (force || (!music.buffer && !raw)) {
+        const key = $('xiKey').value.trim();
+        if (!key) { music.synth = synthOrgan(out); musStatus('♫ synth organ (no elevenlabs key)'); return; }
+        // organ in the meantime, so the wait isn't silent
+        music.synth = synthOrgan(out);
+        raw = await fetchMusic(key);
+        try { localStorage.setItem(MUSIC_KEY, b64(raw)); } catch {}
+        music.buffer = null;
+      }
+      if (!music.buffer) music.buffer = await ctx.decodeAudioData(raw.slice(0));
+      if ($('music').value !== 'eleven') return;   // user switched while composing
+      if (music.synth) { music.synth.stop(); music.synth = null; }
+      const src = ctx.createBufferSource(); src.buffer = music.buffer; src.loop = true;
+      src.connect(out); src.start();
+      music.src = src;
+      musStatus(`♫ elevenlabs (${Math.round(music.buffer.duration)}s loop)`);
+    } catch (e) {
+      if (!music.synth) music.synth = synthOrgan(out);
+      musStatus(`♫ synth organ · elevenlabs failed: ${e.message}`);
+    } finally { music.busy = false; }
+  }
+  // synth fallback: drawbar-ish organ playing a slow minor jazz progression through tape wobble and vinyl crackle
+  function synthOrgan(out) {
+    const ctx = audio.ctx;
+    const mtof = m => 440 * 2 ** ((m - 69) / 12);
+    const CHORDS = [
+      [50, 53, 57, 60, 64],   // Dm9
+      [46, 50, 53, 57, 60],   // Bbmaj9
+      [43, 46, 50, 53, 57],   // Gm9
+      [45, 49, 55, 58, 62]    // A7b9
+    ];
+    const bus = ctx.createGain(); bus.gain.value = 0.9;
+    const shaper = ctx.createWaveShaper();
+    const curve = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; curve[i] = Math.tanh(1.6 * x); }
+    shaper.curve = curve;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1900; lp.Q.value = 0.7;
+    bus.connect(shaper).connect(lp).connect(out);
+    // tape wobble on every oscillator
+    const wob = ctx.createOscillator(), wobG = ctx.createGain(); wob.frequency.value = 0.35; wobG.gain.value = 6; wob.connect(wobG); wob.start();
+    // tremolo (leslie-ish)
+    const trem = ctx.createOscillator(), tremG = ctx.createGain(); trem.frequency.value = 5.2; tremG.gain.value = 0.08; trem.connect(tremG).connect(bus.gain); trem.start();
+    // vinyl crackle + hiss
+    const len = ctx.sampleRate * 2, nb = ctx.createBuffer(1, len, ctx.sampleRate), nd = nb.getChannelData(0);
+    for (let i = 0; i < len; i++) nd[i] = (Math.random() * 2 - 1) * 0.02 + (Math.random() < 0.0006 ? (Math.random() * 2 - 1) * 0.6 : 0);
+    const noise = ctx.createBufferSource(); noise.buffer = nb; noise.loop = true;
+    const nf = ctx.createBiquadFilter(); nf.type = 'highpass'; nf.frequency.value = 1800;
+    const ng = ctx.createGain(); ng.gain.value = 0.5;
+    noise.connect(nf).connect(ng).connect(out); noise.start();
+
+    let alive = true, timer = null, step = 0;
+    const live = [];
+    function playChord(notes, t, dur) {
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 1.8);
+      g.gain.setValueAtTime(0.16, t + dur - 1.6);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.4);
+      g.connect(bus);
+      const oscs = [];
+      notes.forEach((m, k) => {
+        // drawbars: fundamental + octave + twelfth, softer as they go up; bass root an octave down
+        const parts = k === 0 ? [[0.5, 0.9, 'sine'], [1, 0.5, 'triangle']] : [[1, 0.5, 'sine'], [2, 0.22, 'sine'], [3, 0.1, 'sine']];
+        for (const [ratio, amp, type] of parts) {
+          const o = ctx.createOscillator(); o.type = type; o.frequency.value = mtof(m) * ratio;
+          o.detune.value = (Math.random() - 0.5) * 7;
+          wobG.connect(o.detune);
+          const og = ctx.createGain(); og.gain.value = amp / notes.length;
+          o.connect(og).connect(g); o.start(t); o.stop(t + dur + 0.6); oscs.push(o);
+        }
+      });
+      live.push(...oscs);
+      if (live.length > 80) live.splice(0, live.length - 80);
+    }
+    function schedule() {
+      if (!alive) return;
+      const dur = 60 / 70 * 8;   // two bars at 70 bpm
+      playChord(CHORDS[step++ % CHORDS.length], ctx.currentTime + 0.05, dur);
+      timer = setTimeout(schedule, (dur - 0.3) * 1000);
+    }
+    schedule();
+    return {
+      stop() {
+        alive = false; clearTimeout(timer);
+        const t = ctx.currentTime;
+        bus.gain.cancelScheduledValues(t); bus.gain.setValueAtTime(bus.gain.value, t); bus.gain.linearRampToValueAtTime(0, t + 1.2);
+        setTimeout(() => { for (const o of live) { try { o.stop(); } catch {} } noise.stop(); wob.stop(); trem.stop(); bus.disconnect(); ng.disconnect(); }, 1400);
+      }
+    };
+  }
+  $('music').onchange = () => startMusic(false);
+  $('musicVol').oninput = () => { if (music.gain) musicGain(); };
+  $('remusicBtn').onclick = async () => { if (!audio.on) await setSound(true); $('music').value = 'eleven'; startMusic(true); };
+
+  async function setSound(on) {
+    audio.on = on;
+    $('soundBtn').textContent = on ? 'sound on' : 'sound off';
+    $('soundBtn').classList.toggle('on', on);
+    if (!on) { sndStatus('♪ muted'); stopMusic(); stopPiece(); musStatus('♫ off'); return; }
+    const ctx = ensureCtx(); await ctx.resume();
+    startMusic(false);
+    if (playMode() === 'piece') startPiece();
+    const names = stylesInUse();
+    if (!names.length) sndStatus(`♪ ${$('style').value}`);
+    else if ($('voice').value === 'eleven') {
+      if (names.some(n => !audio.bufs[n].length)) await loadPlucks(false);
+      else sndStatus(`♪ elevenlabs ${names.join(' + ')}`);
+    } else sndStatus(`♪ synth ${names.join(' + ')}`);
+  }
+  $('soundBtn').onclick = () => { audio.muted = audio.on; setSound(!audio.on); };
+  // browsers only allow audio after a gesture: arm on the first click/key anywhere unless the user muted
+  const arm = () => { if (!audio.on && !audio.muted) setSound(true); };
+  window.addEventListener('pointerdown', arm, { capture: true });
+  window.addEventListener('keydown', arm, { capture: true });
+  sndStatus('♪ click anywhere to start sound');
+  $('voice').onchange = () => { if (audio.on) setSound(true); };
+  $('style').onchange = () => { if (audio.on) { setSound(true); if (['vox', 'ensemble', 'piano', 'toy'].includes($('style').value)) loadPiece(); } };
+  $('regenBtn').onclick = async () => { if (!audio.on) await setSound(true); $('voice').value = 'eleven'; await loadPlucks(true); };
+  try { $('xiKey').value = localStorage.getItem(KEY_KEY) || ''; } catch {}
+  $('xiKey').onchange = () => { try { localStorage.setItem(KEY_KEY, $('xiKey').value.trim()); } catch {} };
+
+  /* ---- loop ---- */
+  function animate() {
+    requestAnimationFrame(animate);
+    const now = performance.now(), dt = now - lastNow; lastNow = now;
+    if (flying) flightT += dt;
+    const position = (flightT * 0.03) % 8000;
+    const look = $('parallax').checked && !isConduct();     // in conduct mode the mouse is busy placing the choir
+    const px = look ? mouseX : 0, py = look ? mouseY : 0;
+    camera.position.x += (px - camera.position.x) * 0.01;
+    camera.position.y += (-py - camera.position.y) * 0.01;
+    camera.position.z = -position + 8000;
+    if (ridge) ridge.position.set(camera.position.x, 0, camera.position.z - 900);    // the white bank behind the swimmers
+    if (bank) bank.position.set(camera.position.x, 0, camera.position.z - D_BANK);   // the near bank in front of their hems
+
+    const b = beatNow();
+    updateLead(b);
+    updateChoir(b);
+    updateSpores(dt);
+    updateTints();
+    renderer.render(scene, camera);
+
+    $('beat').textContent = Math.floor(b);
+    $('phase').textContent = !asset ? 'no asset'
+      : playMode() === 'piece' ? (piece.engine && piece.engine.timer ? `piece · ${piece.engine.describe()}` : 'piece · click anywhere to start')
+      : isConduct() ? `${playMode()} · ${cNext}${playMode() === 'voice' && mic.f ? ' · ' + NOTE_NAMES_S[Math.round(69 + 12 * Math.log2(mic.f / 440)) % 12 + 12 * 0] + ' ' + Math.round(mic.f) + 'Hz' : ''}` : phases.length ? phases[phaseIdx][0] : 'idle';
+    if (piece.engine && piece.engine.timer) main.style.setProperty('--keyhue', piece.engine.keyHue());
+  }
+  function updateHint() {
+    const n = choir.length || +$('choirN').value;
+    const keys = [...KEYS.slice(0, n)].map(k => `<kbd>${k}</kbd>`).join('');
+    $('hint').innerHTML = {
+      mouse: '<kbd>mouse</kbd> ← → slide · ↑ lift out of the clouds · ↓ sink · <kbd>click</kbd>/<kbd>space</kbd> next formation · <kbd>p</kbd> pause flight · <kbd>e</kbd> export',
+      keys: `hold ${keys} — one key per swimmer, left to right · hold several for a chord · <kbd>space</kbd> next formation · <kbd>e</kbd> export`,
+      voice: 'speak, sing or hum: each swimmer hears you differently and surfaces in her own time · pitch slides them left (low) → right (high) · they answer in your key · <kbd>space</kbd> next formation',
+      auto: '<kbd>space</kbd> cue choir · <kbd>n</kbd> next formation · <kbd>p</kbd> pause flight · <kbd>e</kbd> export · move mouse to look',
+      piece: 'the trio sings a piece that never repeats · higher notes float higher · left alto · centre soprano · right bass · <kbd>click</kbd> modulate now · <kbd>space</kbd> new seed · <kbd>e</kbd> export'
+    }[playMode()];
+  }
+
+  /* ---- export: sky gradient + the frame just rendered ---- */
+  function exportPng() {
+    const src = renderer.domElement;
+    const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0, 0, 0, c.height);
+    for (const [o, col] of SKIES[$('sky').value].stops) g.addColorStop(o, col);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, c.width, c.height);
+    renderer.render(scene, camera);          // fresh frame; read back synchronously
+    ctx.drawImage(src, 0, 0);
+    // grain
+    const gc = document.createElement('canvas'); gc.width = c.width; gc.height = c.height;
+    const gctx = gc.getContext('2d'), id = gctx.createImageData(gc.width, gc.height), d = id.data;
+    for (let i = 0; i < d.length; i += 4) { const v = 96 + Math.random() * 64 | 0; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+    gctx.putImageData(id, 0, 0);
+    ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.5; ctx.drawImage(gc, 0, 0);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    c.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `angel-clouds-${Math.floor(beatNow())}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }, 'image/png');
+  }
+
+  /* ---- controls ---- */
+  $('bpm').oninput = () => setBpm(+$('bpm').value);
+  $('choirN').onchange = () => { if (asset) { buildAngels(); phases = []; keyHeld.clear(); updateHint(); if (!isConduct() && $('auto').checked) cue(); } };
+  $('cueBtn').onclick = () => isConduct() ? nextFormation() : cue();
+  $('play').onchange = async () => {
+    phases = []; keyHeld.clear(); updateHint();
+    if (playMode() === 'voice') { if (!audio.on) await setSound(true); if (!(await startMic())) $('play').value = 'mouse'; }
+    else stopMic();
+    if (playMode() === 'piece') { if (!audio.on) await setSound(true); else startPiece(); }
+    else { stopPiece(); if (audio.on) startMusic(false); }
+    if (!isConduct() && $('auto').checked) cue();
+  };
+  updateHint();
+  $('exportBtn').onclick = exportPng;
+  const setFlying = v => { flying = v; $('pauseBtn').textContent = v ? 'flying' : 'paused'; $('pauseBtn').classList.toggle('on', v); };
+  $('pauseBtn').onclick = () => setFlying(!flying);
+  const reanalyze = () => { if (srcImgs.length) { buildFrames(srcImgs); buildAngels(); } };
+  $('key').onchange = reanalyze;
+  $('keyTol').onchange = reanalyze;
+
+  const pickFile = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+    inp.onchange = () => loadFiles(inp.files);
+    inp.click();
+  };
+  drop.onclick = pickFile;
+  $('assetThumb').onclick = pickFile;
+  let overDepth = 0;
+  main.addEventListener('dragenter', e => { e.preventDefault(); overDepth++; main.classList.add('over'); drop.classList.add('over'); });
+  main.addEventListener('dragleave', () => { if (--overDepth <= 0) { overDepth = 0; main.classList.remove('over'); drop.classList.remove('over'); } });
+  main.addEventListener('dragover', e => e.preventDefault());
+  main.addEventListener('drop', e => {
+    e.preventDefault(); overDepth = 0;
+    main.classList.remove('over'); drop.classList.remove('over');
+    loadFiles(e.dataTransfer.files);
+  });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => e.preventDefault());
+
+  window.addEventListener('keyup', e => {
+    const k = KEYS.indexOf(e.key.toLowerCase());
+    if (k >= 0) keyHeld.delete(k);
+  });
+  window.addEventListener('blur', () => keyHeld.clear());
+  window.addEventListener('keydown', e => {
+    if (['INPUT', 'SELECT'].includes(e.target.tagName)) return;
+    if (playMode() === 'keys') {
+      const k = KEYS.indexOf(e.key.toLowerCase());
+      if (k >= 0 && k < choir.length) { if (!e.repeat) keyHeld.add(k); return; }
+    }
+    if (e.code === 'Space') { e.preventDefault(); playMode() === 'piece' ? newSeed() : isConduct() ? nextFormation() : cue(); }
+    else if (e.key === 'n') isConduct() ? nextFormation() : nextPhase();
+    else if (e.key === 'p') setFlying(!flying);
+    else if (e.key === 'e') exportPng();
+  });
+  installReel($('reelGroup'), { compact: true });   // record a reel of the sky (r), see reel.js
+
+  // default asset: the pose frames in this folder (works when served over http; under file:// drop them in — multi-select works)
+  // ?me=1 : the portrait made in angelme.html becomes the figure instead
+  // ?me=1 : angel-me.png in this folder (from angelme.html's download), or the portrait saved by "put me in the sky"
+  const wantMe = new URLSearchParams(location.search).has('me');
+  meMode = wantMe;
+  const loadMe = async () => {
+    // six poses with the face set in (me/angel-me-0..5.png), if they exist
+    try {
+      const rs = await Promise.all([0, 1, 2, 3, 4, 5].map(i => fetch(`me/angel-me-${i}.png`)));
+      if (rs.every(r => r.ok)) { const blobs = await Promise.all(rs.map(r => r.blob())); await loadFiles(blobs.map((b, i) => new File([b], `angel-me-${i}.png`, { type: 'image/png' })), 'angel me ×6'); return true; }
+    } catch {}
+    let blob = null;
+    try { const r = await fetch('angel-me.png'); if (r.ok) blob = await r.blob(); } catch {}
+    if (!blob) { try { const d = localStorage.getItem('duality-me'); if (d) blob = await (await fetch(d)).blob(); } catch {} }
+    if (!blob) { meMode = false; return false; }
+    await loadFiles([new File([blob], 'angel-me.png', { type: 'image/png' })], 'angel me');
+    return true;
+  };
+  if (wantMe) loadMe().then(ok => { if (!ok) loadDefaults(); });
+  else loadDefaults();
+  function loadDefaults() { Promise.all(FRAME_FILES.map(f => fetch(f).then(r => r.ok ? r.blob() : Promise.reject(f))))
+    .then(blobs => loadFiles(blobs.map((b, i) => new File([b], FRAME_FILES[i], { type: b.type || 'image/png' })), `angel ×${blobs.length}`))
+    .catch(() => {}); }
+
+  // embedded in world.html: no chrome, and join the room given in the query string
+  {
+    const q = new URLSearchParams(location.search);
+    if (q.has('embed') || q.has('clean')) document.body.classList.add('embed');   // clean: the sky alone, no chrome, level horizon
+    if (q.has('lite')) { $('instEp').checked = false; $('instToy').checked = false; $('style').value = 'meow'; }
+    if (q.has('clean')) {
+      const h = document.createElement('div'); h.id = 'cleanHint'; h.textContent = 'click once to wake the sound · ≡ for the controls';
+      main.appendChild(h);
+      window.addEventListener('pointerdown', () => h.classList.add('gone'), { once: true, capture: true });
+      // ≡ (or the i key) shows and hides the toolbar, like the panel in world.html
+      const b = document.createElement('button'); b.id = 'cleanBtn'; b.textContent = '≡'; b.title = 'controls (i)';
+      const toggle = () => document.body.classList.toggle('embed');
+      b.onclick = toggle; main.appendChild(b);
+      window.addEventListener('keydown', e => { if (e.key === 'i' && !e.metaKey && !e.ctrlKey && e.target.tagName !== 'INPUT') toggle(); });
+    }
+    if (q.get('bus')) $('linkUrl').value = q.get('bus');
+    if (q.get('room')) { $('linkRoom').value = q.get('room'); setTimeout(() => { if (!link.es) linkConnect(); }, 500); }
+    if (q.has('clean') && q.has('me')) history.replaceState(null, '', location.pathname + '?clean=1&me=1');
+  }
+
+  // controls for world.html (same origin): toggles, timbre, tempo, volume
+  window.duality = {
+    set(id, value) { const el = $(id); if (!el) return; if (el.type === 'checkbox') el.checked = !!value; else el.value = value; el.dispatchEvent(new Event(el.type === 'range' ? 'input' : 'change')); },
+    mutePart(i, muted) { muted ? mutedParts.add(i) : mutedParts.delete(i); if (audio.ctx) { fade(layers().part[i], !muted); if (!muted) previewPart(i); } },
+    master(v) { if (audio.master) audio.master.gain.value = v; },
+    newSeed: () => newSeed(),
+    async voice(on) { if (on) { if (!audio.on) await setSound(true); const ok = await startMic(); mic.listen = ok; return ok; } mic.listen = false; stopMic(); return true; },
+    debug: () => choir.map(m => ({ x: +m.position.x.toFixed(1), y: +m.position.y.toFixed(1), frame: asset.frames.findIndex(f => f.tex === m.material.uniforms.map.value), op: +m.material.uniforms.opacity.value.toFixed(2) })),
+    state: () => ({ on: audio.on, style: $('style').value, ep: $('instEp').checked, toy: $('instToy').checked, tape: $('instTape').checked, bpm, musicVol: +$('musicVol').value })
+  };
+
+  initScene();
+  animate();
+})();
+</script>
+</body>
+</html>
