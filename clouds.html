@@ -43,8 +43,9 @@
   header .tip b { color: var(--fg); font-weight: normal; }
   #xiKey { -webkit-text-security: disc; }   /* masked like a password, but not a password field: password managers leave it alone */
   #askLine:not(:empty) { display: block; color: #ffd76a; }   /* the request, right where the key goes */
-  #favBtn { padding: 2px 7px; }
-  #favBtn.on { color: #ff7a9a; border-color: #ff7a9a; }
+  #favBtn, #voiceFav, #musicFav { padding: 2px 7px; }
+  #favBtn.on, #voiceFav.on, #musicFav.on { color: #ff7a9a; border-color: #ff7a9a; }
+  #voiceSets, #musicSets { max-width: 110px; }
   #favs { max-width: 110px; }
   header .brand a { color: var(--fg); text-decoration: none; }
   header .brand a:hover { color: var(--accent); }
@@ -308,6 +309,8 @@
       <option value="synth">original</option>
       <option value="eleven">elevenlabs</option>
     </select>
+    <button id="voiceFav" class="fav" title="save this set of voices (kept in this browser)">♡</button>
+    <select id="voiceSets" title="saved voices"><option value="">voices…</option></select>
   </label>
   <input type="text" id="xiKey" placeholder="xi-api-key" autocomplete="off" spellcheck="false" autocapitalize="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other">
   <button id="regenBtn" title="generate a fresh set of voice samples">regen</button>
@@ -322,6 +325,8 @@
       <option value="synth">synth organ</option>
       <option value="eleven">elevenlabs</option>
     </select>
+    <button id="musicFav" class="fav" title="save this organ track (kept in this browser)">♡</button>
+    <select id="musicSets" title="saved tracks"><option value="">tracks…</option></select>
     <input type="range" id="musicVol" min="0" max="100" step="1" value="65">
   </label>
   <button id="remusicBtn" title="compose a fresh backdrop track">recompose</button>
@@ -1927,6 +1932,7 @@
   $('musicVol').oninput = () => { if (music.gain) musicGain(); };
   $('remusicBtn').onclick = async () => {
     if (!$('xiKey').value.trim()) { ask('paste your ElevenLabs key here first, then recompose'); return; }
+    hearts.music = null; paintHearts();
     if (!audio.on) await setSound(true); $('music').value = 'eleven'; startMusic(true);
   };
 
@@ -1955,6 +1961,63 @@
   $('voice').onchange = () => { if (audio.on) setSound(true); };
   $('style').onchange = () => { if (audio.on) { setSound(true); if (['vox', 'ensemble', 'piano', 'toy'].includes($('style').value)) loadPiece(); } };
   $('keepBtn').onclick = keepVoices;
+  /* ---- ♥ voices and ♥ tracks: ElevenLabs results you want to come back to. They are audio (a track is megabytes), so they
+     live in this browser's IndexedDB, not localStorage. Each entry: { id, name, kind, style, when, data: [ArrayBuffer] } ---- */
+  const store = {
+    db: null,
+    open() { return this.db || (this.db = new Promise((res, rej) => { const r = indexedDB.open('duality-hearts', 1); r.onupgradeneeded = () => r.result.createObjectStore('sets', { keyPath: 'id' }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); })); },
+    async all() { const db = await this.open(); return new Promise(res => { const q = db.transaction('sets').objectStore('sets').getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); }); },
+    async put(entry) { const db = await this.open(); return new Promise(res => { const t = db.transaction('sets', 'readwrite'); t.objectStore('sets').put(entry); t.oncomplete = res; t.onerror = res; }); },
+    async del(id) { const db = await this.open(); return new Promise(res => { const t = db.transaction('sets', 'readwrite'); t.objectStore('sets').delete(id); t.oncomplete = res; t.onerror = res; }); },
+  };
+  const hearts = { voice: null, music: null };   // the id of the saved entry that is playing now, if any
+  async function paintHearts() {
+    const all = (await store.all()).sort((a, b) => b.id - a.id);
+    const fill = (sel, kind, blank) => { const list = all.filter(e => e.kind === kind); sel.innerHTML = `<option value="">${blank}</option>` + list.map(e => `<option value="${e.id}">${e.name}</option>`).join('') + (list.length ? '<option value="forget">forget one…</option>' : ''); return list; };
+    const v = fill($('voiceSets'), 'voice', 'voices…'), m = fill($('musicSets'), 'music', 'tracks…');
+    $('voiceFav').classList.toggle('on', v.some(e => e.id === hearts.voice)); $('voiceFav').textContent = v.some(e => e.id === hearts.voice) ? '♥' : '♡';
+    $('musicFav').classList.toggle('on', m.some(e => e.id === hearts.music)); $('musicFav').textContent = m.some(e => e.id === hearts.music) ? '♥' : '♡';
+  }
+  const stamp = () => new Date().toISOString().slice(5, 10).replace('-', '/');
+  $('voiceFav').onclick = async () => {
+    if (hearts.voice) { await store.del(hearts.voice); hearts.voice = null; paintHearts(); return; }   // ♥ again forgets it
+    const name = $('style').value === 'ensemble' ? 'meow' : $('style').value, st = STYLES[name];
+    let raw = null; try { const c = localStorage.getItem(st.cache); if (c) raw = JSON.parse(c).map(unb64); } catch {}
+    if (!raw) { sndStatus(`♪ nothing to save yet: these ${name}s are the original's`); return; }
+    const label = (prompt('name these voices', `${name} ${stamp()}`) || '').trim(); if (!label) return;
+    const id = Date.now(); await store.put({ id, kind: 'voice', style: name, name: label, when: stamp(), data: raw });
+    hearts.voice = id; paintHearts(); sndStatus(`♪ saved voices “${label}”`);
+  };
+  $('voiceSets').onchange = async () => {
+    const v = $('voiceSets').value; $('voiceSets').value = '';
+    const all = (await store.all()).filter(e => e.kind === 'voice');
+    if (v === 'forget') { const which = prompt('forget which voices?\n' + all.map(e => '· ' + e.name).join('\n')); const e = which && all.find(e => e.name === which.trim()); if (e) { await store.del(e.id); if (hearts.voice === e.id) hearts.voice = null; } paintHearts(); return; }
+    const e = all.find(e => String(e.id) === v); if (!e) return;
+    try { localStorage.setItem(STYLES[e.style].cache, JSON.stringify(e.data.map(b64))); } catch {}   // becomes the current elevenlabs set for that style
+    hearts.voice = e.id; audio.bufs[e.style] = []; $('voice').value = 'eleven';
+    if ($('style').value !== e.style && !($('style').value === 'ensemble' && e.style === 'meow')) $('style').value = e.style;
+    if (!audio.on) await setSound(true); else await loadPlucks(false);
+    paintHearts(); sndStatus(`♪ voices “${e.name}”`);
+  };
+  $('musicFav').onclick = async () => {
+    if (hearts.music) { await store.del(hearts.music); hearts.music = null; paintHearts(); return; }
+    let raw = null; try { const c = localStorage.getItem(MUSIC_KEY); if (c) raw = unb64(c); } catch {}
+    if (!raw) { musStatus('♫ nothing to save yet: no elevenlabs track has been composed'); return; }
+    const label = (prompt('name this track', `organ ${stamp()}`) || '').trim(); if (!label) return;
+    const id = Date.now(); await store.put({ id, kind: 'music', name: label, when: stamp(), data: [raw] });
+    hearts.music = id; paintHearts(); musStatus(`♫ saved track “${label}”`);
+  };
+  $('musicSets').onchange = async () => {
+    const v = $('musicSets').value; $('musicSets').value = '';
+    const all = (await store.all()).filter(e => e.kind === 'music');
+    if (v === 'forget') { const which = prompt('forget which track?\n' + all.map(e => '· ' + e.name).join('\n')); const e = which && all.find(e => e.name === which.trim()); if (e) { await store.del(e.id); if (hearts.music === e.id) hearts.music = null; } paintHearts(); return; }
+    const e = all.find(e => String(e.id) === v); if (!e) return;
+    try { localStorage.setItem(MUSIC_KEY, b64(e.data[0])); } catch {}
+    hearts.music = e.id; music.buffer = null; music.chosen = true; $('music').value = 'eleven';
+    if (!audio.on) await setSound(true); else startMusic(false);
+    paintHearts(); musStatus(`♫ track “${e.name}”`);
+  };
+  paintHearts();
   // saved boards: every dial on the toolbar under a name, kept in this browser (the key and the link are not part of a board)
   const BOARDS = 'duality-boards';
   const BOARD_IDS = ['play', 'style', 'voice', 'music', 'musicVol', 'bpm', 'choirN', 'routine', 'sky', 'lead', 'pieceSeed', 'instEp', 'instToy', 'instTape', 'halo', 'parallax', 'auto'];
@@ -1991,7 +2054,8 @@
     if ($('play').value !== 'piece') set('play', 'piece');
     sndStatus('♪ OG · back to how it opens');
   };
-  $('regenBtn').onclick = async () => { if (!audio.on) await setSound(true); $('voice').value = 'eleven'; await loadPlucks(true); };
+  $('regenBtn').onclick = async () => {
+    hearts.voice = null; paintHearts(); if (!audio.on) await setSound(true); $('voice').value = 'eleven'; await loadPlucks(true); };
   try { $('xiKey').value = localStorage.getItem(KEY_KEY) || ''; } catch {}
   $('xiKey').onchange = () => { try { localStorage.setItem(KEY_KEY, $('xiKey').value.trim()); } catch {} };
   const ask = t => { $('askLine').textContent = t; $('xiKey').focus(); };
