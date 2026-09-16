@@ -552,7 +552,9 @@
     bank = cloudBank(7, 64, 900, BANK_Y_LO, BANK_Y_HI, 20, 52, 120); bank.renderOrder = 0;
     scene.add(bank);
 
-    renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+    // straight (non-premultiplied) alpha: the shaders write plain colour + alpha, and Apple's compositor paints premultiplied
+    // canvases with colour > alpha (white clouds at low alpha) as rainbow garbage on iPhone
+    renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, premultipliedAlpha: false });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x000000, 0);
     main.appendChild(renderer.domElement);
