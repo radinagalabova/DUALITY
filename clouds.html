@@ -1342,8 +1342,12 @@
 
   const LITE = new URLSearchParams(location.search).has('lite');   // for the web: no sample libraries, synth voices only
   async function loadPiece() {
-    if (piece.loaded || piece.loading) return;
-    piece.loading = true;
+    if (piece.loaded) return;
+    if (piece.loading) return piece.loading;   // a second caller waits for the load already under way (so the tape bed is never skipped)
+    piece.loading = loadPieceNow();
+    return piece.loading;
+  }
+  async function loadPieceNow() {
     const ctx = ensureCtx();
     const bufs = LITE ? {} : await Acapella.loadBuffers(ctx, SAMPLE_ITEMS, (d, n) => sndStatus(`♪ loading samples ${d}/${n}`));
     const inst = musicGain(), L = layers();          // accompaniment rides the music volume slider
