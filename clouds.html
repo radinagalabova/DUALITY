@@ -1177,6 +1177,14 @@
     const name = $('style').value === 'ensemble' ? 'meow' : $('style').value, st = STYLES[name];
     let raw = null; try { const c = localStorage.getItem(st.cache); if (c) raw = JSON.parse(c).map(unb64); } catch {}
     if (!raw) { sndStatus(`♪ nothing to keep yet: these ${name}s are the synth's`); return; }
+    // in the studio the local server files them straight into voices/<style>/; anywhere else they go to Downloads
+    const studio = /^https?:\/\/(localhost|127\.0\.0\.1):8765$/.test(location.origin);
+    if (studio) {
+      try {
+        for (let i = 0; i < raw.length; i++) { const r = await fetch(`/keep?style=${name}&i=${i}`, { method: 'POST', body: raw[i] }); if (!r.ok) throw new Error(await r.text()); }
+        sndStatus(`♪ kept ${raw.length} ${name}s in voices/${name}/ — they ship with the next build`); return;
+      } catch (e) { sndStatus(`♪ couldn't file them (${e.message}) — restart the server? falling back to Downloads`); }
+    }
     raw.forEach((b, i) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([b], { type: 'audio/mpeg' })); a.download = `${name}-${i}.mp3`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); });
     sndStatus(`♪ kept ${raw.length} ${name} files in Downloads → put them in voices/${name}/ as 0.mp3 1.mp3 … and they ship with the site`);
   }
