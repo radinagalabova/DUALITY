@@ -3,7 +3,7 @@
 Two generative pieces that answer each other: three angels singing an a cappella trio above the clouds, and a mushroom forest below. When a mushroom dies an angel folds her wings and goes under; when one grows, she returns.
 
 - **[Symbiosis](https://radinagalabova.github.io/DUALITY/)** — both pieces together, each bending toward what it hears from the other
-- **[Sky](https://radinagalabova.github.io/DUALITY/sky.html)** — the angels alone
+- **[acapella angels](https://radinagalabova.github.io/DUALITY/sky.html)** — the sky alone: three angels singing a trio that never repeats
 - **[Duality](https://radinagalabova.github.io/DUALITY/duality.html)** — the Kuleshov tool: one face, three objects, cut between them
 
 Click once to wake the sound. `≡` (or `i`) opens the controls; `r` records a reel.
