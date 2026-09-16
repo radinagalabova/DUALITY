@@ -9,7 +9,7 @@ window.installReel = function (container, opts = {}) {
     #rBtn.rec { border-color: #ff6a6a; color: #ff6a6a; }
     #recDot { position: absolute; right: 14px; top: 44px; z-index: 8; color: #ff6a6a; font-size: 12px; background: rgba(0,0,0,.4); padding: 3px 9px; border-radius: 10px; display: none; }
     #recDot.on { display: block; }
-    #camPreview { position: absolute; right: 18px; bottom: 18px; width: 140px; height: 140px; border-radius: 50%; object-fit: cover; z-index: 8; border: 2px solid rgba(255,255,255,.5); transform: scaleX(-1); }
+    #camPreview { position: absolute; right: 18px; bottom: 86px;   /* above the RAD AMS stamp in the corner */ width: 140px; height: 140px; border-radius: 50%; object-fit: cover; z-index: 8; border: 2px solid rgba(255,255,255,.5); transform: scaleX(-1); }
     #rStatus { color: #888; font-size: 11px; line-height: 1.4; margin-top: 4px; }`;
   document.head.appendChild(css);
   container.insertAdjacentHTML('beforeend', `
