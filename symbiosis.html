@@ -34,6 +34,7 @@
     background: rgba(0,0,0,.35); padding: 3px 8px; border-radius: 10px; transition: opacity 1s;
   }
   #hint.gone { opacity: 0; pointer-events: none; }
+  @media (max-width: 640px) { #hint { left: 12px; right: 12px; top: 44px; white-space: normal; text-align: center; } }   /* phones: under the label, not over it */
   #hint kbd { color: #fff; }
   .menuLabel { position: absolute; left: 46px; top: 13px; z-index: 7; color: rgba(255,255,255,.6); font: 12px/1.4 "SF Mono", Menlo, Consolas, monospace; letter-spacing: .3px; cursor: pointer; text-shadow: 0 1px 6px rgba(0,0,0,.6); user-select: none; }
   .menuLabel:hover { color: #fff; }
