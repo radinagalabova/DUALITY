@@ -28,7 +28,7 @@ window.installReel = function (container, opts = {}) {
     } catch (e) { rStatus('capture cancelled'); return; }
     const wantMic = $('rMic').checked, wantCam = $('rCam').checked;
     try { if (wantMic) rec.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } }); } catch { rStatus('mic not available — recording without it'); }
-    try { if (wantCam) { rec.cam = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 640, facingMode: 'user' } }); const v = $('camPreview'); v.srcObject = rec.cam; v.hidden = false; } } catch { rStatus('camera not available'); }
+    if (wantCam && !rec.cam) await openCam();   // usually already open: the preview appears when the box is ticked
     // mix: tab audio + mic, the voice sitting a little above the piece, through a gentle compressor so nothing clips
     const ctx = rec.ctx = new AudioContext(), dest = ctx.createMediaStreamDestination();
     const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.2; comp.connect(dest);
@@ -74,14 +74,25 @@ window.installReel = function (container, opts = {}) {
     $('recDot').classList.add('on');
     rStatus(`recording ${reel ? '1080×1920' : W + '×' + H}${rec.mic ? ' + mic' : ''}${rec.cam ? ' + camera' : ''}…`);
   }
+  // the camera: on as soon as the box is ticked, so you can frame yourself before recording; off when unticked
+  async function openCam() {
+    if (rec.cam) return;
+    try { rec.cam = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 640, facingMode: 'user' } }); const v = $('camPreview'); v.srcObject = rec.cam; v.hidden = false; }
+    catch { rStatus('camera not available'); $('rCam').checked = false; }
+  }
+  function closeCam() {
+    if (rec.cam) rec.cam.getTracks().forEach(t => t.stop());
+    rec.cam = null; const v = $('camPreview'); v.hidden = true; v.srcObject = null;
+  }
+  $('rCam').onchange = () => $('rCam').checked ? openCam() : closeCam();
   function stopRec() {
     if (!rec.on) return; rec.on = false;
     cancelAnimationFrame(rec.raf);
     try { rec.mr.stop(); } catch {}
-    for (const st of [rec.screen, rec.mic, rec.cam]) if (st) st.getTracks().forEach(t => t.stop());
+    for (const st of [rec.screen, rec.mic]) if (st) st.getTracks().forEach(t => t.stop());
     if (rec.ctx) rec.ctx.close();
-    rec.screen = rec.mic = rec.cam = null;
-    const v = $('camPreview'); v.hidden = true; v.srcObject = null;
+    rec.screen = rec.mic = null;
+    if (!$('rCam').checked) closeCam();   // the preview stays if the box is still ticked
     $('rBtn').textContent = '● record (r)'; $('rBtn').classList.remove('rec');
     $('recDot').classList.remove('on');
   }
