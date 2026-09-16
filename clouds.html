@@ -149,6 +149,7 @@
     transition: background-color 4s linear, opacity 2s;
   }
   main.keyed::before { opacity: .12; }
+  body.plain main::after { display: none; }
   /* film grain: a noise tile, jittered so it lives */
   main::after {
     content: "";
@@ -1977,6 +1978,8 @@
   // browsers only allow audio after a gesture: arm on the first click/key anywhere unless the user muted
   const arm = () => { if (!audio.on && !audio.muted) setSound(true); };
   window.addEventListener('pointerdown', arm, { capture: true });
+  window.addEventListener('touchend', arm, { capture: true });   // iOS unlocks audio only on touchend / click, never on pointerdown
+  window.addEventListener('click', arm, { capture: true });
   window.addEventListener('keydown', arm, { capture: true });
   sndStatus('♪ click anywhere to start sound');
   $('voice').onchange = () => { if (audio.on) setSound(true); };
@@ -2248,6 +2251,7 @@
   {
     const q = new URLSearchParams(location.search);
     if (q.has('embed') || q.has('clean')) document.body.classList.add('embed');   // clean: the sky alone, no chrome, level horizon
+    if (q.has('plain')) { document.body.classList.add('plain'); if (bank) bank.visible = false; $('halo').checked = false; }   // debugging a phone: grain, near bank and halo off
     if (q.has('clean')) {
       document.body.classList.add('clean'); document.title = 'DUALITY · ACAPELLA ANGELS';
       // no key on the public page: "elevenlabs" is offered only as a kept studio set that ships with the site
