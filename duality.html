@@ -319,7 +319,15 @@
   }
   function tick() {
     aVisible = !aVisible;
-    if (aVisible) cycles++;
+    if (aVisible) {
+      cycles++;
+      // with two or three objects on the board, the cut walks on to the next one each time the face comes back
+      const filled = [0, 1, 2].filter(i => board.B[i]);
+      if (filled.length > 1) {
+        const next = filled[(filled.indexOf(board.cur) + 1) % filled.length];
+        if (next !== board.cur) { board.cur = next; frames.forEach((f, k) => f.classList.toggle('on', k === next)); load('B', board.B[next]); }
+      }
+    }
     render();
     schedule();
   }
