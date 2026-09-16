@@ -477,7 +477,7 @@
     camera = new THREE.PerspectiveCamera(FOV, 1, 1, 3000);
     camera.position.z = 6000;
     // in the world the sky is a band above the forest: look slightly up so the deck takes less of it
-    { const q = new URLSearchParams(location.search); camera.rotation.x = q.has('embed') ? 0.11 : q.has('clean') ? 0.09 : 0.05; }
+    { const q = new URLSearchParams(location.search); camera.rotation.x = q.has('embed') ? 0.11 : q.has('clean') ? 0.03 : 0.05; }
     scene = new THREE.Scene();
 
     cloudMat = new THREE.ShaderMaterial({
