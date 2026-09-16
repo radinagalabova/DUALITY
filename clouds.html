@@ -212,6 +212,7 @@
   #radams:hover { opacity: 1; }
   #radams img { display: block; width: 44px; height: auto; border-radius: 3px; }
   body.embed:not(.clean) #radams { display: none; }
+  #linkGroup { display: contents; }
   body.clean #linkGroup, body.clean #lnkStatus { display: none; }   /* the sky alone has nothing to link to */   /* inside symbiosis.html the world carries the stamp */
 </style>
 </head>
@@ -318,7 +319,7 @@
     <input type="range" id="musicVol" min="0" max="100" step="1" value="65">
   </label>
   <button id="remusicBtn" title="compose a fresh backdrop track">recompose</button>
-  <span id="linkGroup" style="display:contents">
+  <span id="linkGroup">
   <span class="sep"></span>
   <label>link <input type="text" id="linkUrl" placeholder="bus url" spellcheck="false"></label>
   <label>room <input type="text" id="linkRoom" value="duality" spellcheck="false"></label>
