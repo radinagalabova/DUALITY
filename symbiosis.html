@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUALITY · SYMBIOSIS</title>
+<style>
+  :root { --seam: 47%; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  /* the same sunset as the clouds, continuing on down behind the forest */
+  body { background: linear-gradient(#3b2f6e 0%, #6b56a4 8%, #a984c0 16%, #d99bba 23%, #f4a9a6 30%, #fbe0da 36%, #fce8e3 43%, #fbe0da 52%, #f6c6b8 66%, #e9aeab 84%, #d99aa3 100%); }
+  .sky, .ground { position: absolute; left: 0; width: 100%; border: 0; display: block; background: transparent; }
+  /* the two halves overlap and dissolve into each other instead of meeting on a line */
+  .sky { top: 0; height: calc(var(--seam) + 10vh); z-index: 2;
+         --m: linear-gradient(#000 0%, #000 60%, rgba(0,0,0,.97) 68%, rgba(0,0,0,.88) 76%, rgba(0,0,0,.7) 84%, rgba(0,0,0,.42) 92%, rgba(0,0,0,.15) 97%, transparent 100%);
+         -webkit-mask-image: var(--m); mask-image: var(--m); }
+  .ground { top: calc(var(--seam) - 6vh); height: calc(100% - var(--seam) + 6vh); z-index: 1;
+            --m: linear-gradient(transparent 0%, rgba(0,0,0,.15) 5%, rgba(0,0,0,.45) 11%, rgba(0,0,0,.8) 18%, #000 26%);
+            -webkit-mask-image: var(--m); mask-image: var(--m); }
+  #seam { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+  /* the underside of the cloud deck, hanging over the forest so the two worlds don't meet in a straight line */
+  /* the band is 24vh tall (seam - 8vh .. seam + 16vh) but the canvas gets 12vh of headroom above, so the puffs are never clipped flat */
+  #cloudline { position: absolute; left: 0; width: 100%; top: calc(var(--seam) - 20vh); height: 36vh; z-index: 4; pointer-events: none; }
+  #caption {
+    position: absolute; left: 50%; top: calc(var(--seam) - 14px); transform: translateX(-50%);
+    z-index: 6; pointer-events: none; color: rgba(255,235,200,.9); font-size: 12px; letter-spacing: .5px;
+    background: rgba(0,0,0,.35); padding: 4px 12px; border-radius: 14px; opacity: 0; transition: opacity .6s;
+    text-shadow: 0 1px 8px rgba(0,0,0,.6); white-space: nowrap;
+  }
+  #caption.on { opacity: 1; }
+  #hint {
+    position: absolute; right: 12px; top: 10px; z-index: 6; color: rgba(255,255,255,.55); font-size: 11px;
+    background: rgba(0,0,0,.35); padding: 3px 8px; border-radius: 10px; transition: opacity 1s;
+  }
+  #hint.gone { opacity: 0; pointer-events: none; }
+  #hint kbd { color: #fff; }
+  .menuLabel { position: absolute; left: 46px; top: 13px; z-index: 7; color: rgba(255,255,255,.6); font: 12px/1.4 "SF Mono", Menlo, Consolas, monospace; letter-spacing: .3px; cursor: pointer; text-shadow: 0 1px 6px rgba(0,0,0,.6); user-select: none; }
+  .menuLabel:hover { color: #fff; }
+  #panelBtn { position: absolute; left: 12px; top: 10px; z-index: 7; background: rgba(0,0,0,.35); color: rgba(255,255,255,.7); border: 0; border-radius: 10px; font: 14px/1 inherit; padding: 3px 9px; cursor: pointer; }
+  #panel {
+    position: absolute; left: 12px; top: 40px; z-index: 7; display: none; min-width: 220px;
+    max-height: calc(100vh - 60px); overflow-y: auto;   /* never taller than the window: scroll instead */
+    background: rgba(10,10,10,.72); backdrop-filter: blur(10px); color: #d0d0d0; font-size: 12px; line-height: 1.8;
+    padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
+  }
+  #panel.on { display: block; }
+  #panel .note { margin: 0 0 4px; color: #999; font-size: 11px; line-height: 1.5; max-width: 34ch; }
+  #panel a.piece { display: block; color: #d0d0d0; text-decoration: none; }
+  #panel a.piece:hover { color: #fff; text-decoration: underline; }
+  #panel h4 { margin: 6px 0 2px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7dff7d; font-weight: normal; }
+  #panel label { display: block; color: #aaa; white-space: nowrap; }
+  #panel select, #panel input[type=range] { background: transparent; color: #d0d0d0; border: none; border-bottom: 1px solid #555; font: inherit; }
+  #panel select option { background: #111; }
+  #panel input[type=range] { -webkit-appearance: none; width: 120px; height: 1px; background: #555; vertical-align: middle; margin-left: 6px; }
+  #panel input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 14px; background: #7dff7d; }
+  #panel button { margin-top: 6px; background: transparent; color: #d0d0d0; border: 1px solid #555; font: inherit; padding: 2px 10px; cursor: pointer; }
+  #panel button:hover { border-color: #7dff7d; color: #7dff7d; }
+  /* the RAD AMS stamp, bottom right */
+  #radams { position: absolute; right: 22px; bottom: 20px; z-index: 9; opacity: .55; transition: opacity .3s; }
+  #radams:hover { opacity: 1; }
+  #radams img { display: block; width: 44px; height: auto; border-radius: 3px; }
+</style>
+</head>
+<body>
+<iframe class="sky" id="sky" allow="microphone; autoplay"></iframe>
+<iframe class="ground" id="ground" allow="autoplay"></iframe>
+<canvas id="cloudline"></canvas>
+<canvas id="seam"></canvas>
+<div id="hint">click once to wake the sound · <kbd>i</kbd> instruments · voice in the panel</div>
+<button id="panelBtn" title="sound board (i)">≡</button><span class="menuLabel" id="panelLabel">‹ sound board</span>
+<div id="panel">
+  <h4>voices</h4>
+  <label><input type="checkbox" data-part="0" checked> alto</label>
+  <label><input type="checkbox" data-part="1" checked> soprano</label>
+  <label><input type="checkbox" data-part="2" checked> bass</label>
+  <label>timbre
+    <select id="pStyle">
+      <option value="ensemble">ensemble (piano · meow · bass)</option>
+      <option value="piano">piano</option><option value="toy">toy piano</option><option value="vox">tape vox</option>
+      <option value="meow">meow</option><option value="bass">bass</option><option value="hey">hey!</option>
+      <option value="ow">toddler ow</option><option value="bulgarian">bulgarian</option><option value="mixed">mixed</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="pVoice"> voice · speak and they answer (meow)</label>
+  <h4>instruments</h4>
+  <label><input type="checkbox" id="pEp" checked> piano chords</label>
+  <label><input type="checkbox" id="pToy" checked> toy piano echo</label>
+  <label><input type="checkbox" id="pTape" checked> tape noise</label>
+  <label><input type="checkbox" id="pKalimba" checked> forest kalimba</label>
+  <h4>levels</h4>
+  <label>voices <input type="range" id="pMaster" min="0" max="100" value="80"></label>
+  <label>instruments <input type="range" id="pMusic" min="0" max="100" value="65"></label>
+  <label>tempo <input type="range" id="pBpm" min="30" max="160" value="72"> <span id="pBpmV">72</span></label>
+  <button id="pSeed">new piece</button>
+  <h4>record a reel</h4>
+  <div id="reelBox"></div>
+  <h4>explore other worlds</h4>
+  <a href="sky.html" class="piece">the sky alone</a>
+  <a href="duality.html" class="piece">duality · the Kuleshov tool</a>
+  <h4>about</h4>
+  <p class="note">the mushroom forest below is the piece of a friend and co-creator of the workshop series — it grew out of her brain. we started combining the two together; the sky, the joining, and the finishing and finessing are RAD AMS.</p>
+</div>
+
+<script src="reel.js"></script>
+<script>
+/* SYMBIOSIS — the clouds above, the mushroom forest below, joined at the seam.
+   This page listens to the same bus as both pieces and draws the crossing between them:
+   gold falling when an angel goes under, pale spores rising when a mushroom dies. */
+(() => {
+  // every world page pairs its own sky and forest in a private room (two open worlds must not cross-talk)
+  // in the studio (localhost) the forest runs on its own vite server and the pieces talk over the relay in .claude/serve.mjs;
+  // hosted (dist-world, built by build-world.sh; this file is symbiosis.html there) everything is one static folder: the forest at forest/, the bus a BroadcastChannel
+  const HOSTED = !/^(localhost|127\.0\.0\.1)$/.test(location.hostname) || new URLSearchParams(location.search).has('hosted');
+  const BUS = HOSTED ? 'local' : 'http://localhost:8765/bus', ROOM = 'world-' + Math.random().toString(36).slice(2, 8);
+  const me = new URLSearchParams(location.search).has('me') ? '&me=1' : '';
+  document.getElementById('sky').src = `clouds.html?embed=1&room=${ROOM}${me}${HOSTED ? '&bus=local' : ''}`;
+  document.getElementById('ground').src = HOSTED ? `forest/forest.html?embed=1&room=${ROOM}&bus=local&sky=../` : `http://localhost:5173/forest.html?embed=1&room=${ROOM}`;
+  // speak / listen on the bus, whichever kind it is
+  const post = body => BUS === 'local' ? bc().postMessage(JSON.stringify(body))
+    : fetch(`${BUS}?room=${ROOM}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  let _bc = null; const bc = () => _bc || (_bc = new BroadcastChannel('duality-bus-' + ROOM));
+  // (the seam canvas is kept for the layout but draws nothing now)
+  const seamY = () => innerHeight * 0.47;
+  let capTimer = null;
+  const caption = () => {};   // no words at the seam
+  function burst() {}
+
+  // ── the cloud underside: soft puffs drifting along the seam, thinning downward into the forest ──
+  const cl = document.getElementById('cloudline'), cctx = cl.getContext('2d');
+  const puffs = [];
+  // a dense row sitting right on the seam (so the cut is buried), then puffs hanging lower and thinner
+  for (let i = 0; i < 70; i++) puffs.push({ x: i / 70 * 1.1 - 0.05 + Math.random() * 0.02, y: 0.2 + Math.random() * 0.08, r: 0.09 + Math.random() * 0.07, a: 1, v: 0.003 + Math.random() * 0.004, ph: Math.random() * 6.28 });
+  for (let i = 0; i < 140; i++) {
+    const deep = Math.random() ** 1.5;
+    puffs.push({ x: Math.random() * 1.1 - 0.05, y: 0.22 + deep * 0.5, r: (0.06 + Math.random() * 0.12) * (1 - deep * 0.45), a: 0.9 - deep * 0.75, v: 0.003 + Math.random() * 0.006, ph: Math.random() * 6.28 });
+  }
+  function drawClouds() {
+    requestAnimationFrame(drawClouds);
+    const w = cl.clientWidth, h = cl.clientHeight;
+    if (cl.width !== w || cl.height !== h) { cl.width = w; cl.height = h; }
+    cctx.clearRect(0, 0, w, h);
+    const t = performance.now() / 1000;
+    const bandTop = h / 3, bandH = h * 2 / 3;   // puff positions are in band space; the top third of the canvas is headroom
+    for (const p of puffs) {
+      const x = (((p.x + t * p.v * 0.03) % 1.1 + 1.1) % 1.1 - 0.05) * w;
+      const y = bandTop + (p.y + Math.sin(t * 0.12 + p.ph) * 0.015) * bandH, r = p.r * w * 0.5;
+      // flattened puffs (0.55 tall): the band's top stays low over the angels, with a soft edge instead of a clipped one
+      const g = cctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      g.addColorStop(0, `rgba(253,238,234,${p.a})`); g.addColorStop(0.5, `rgba(252,228,222,${p.a * 0.55})`); g.addColorStop(1, 'rgba(250,210,200,0)');
+      cctx.save(); cctx.translate(x, y); cctx.scale(1, 0.55); cctx.fillStyle = g; cctx.fillRect(-r, -r, r * 2, r * 2); cctx.restore();
+    }
+    // the puffs dissolve into the forest air toward the bottom of the band
+    cctx.globalCompositeOperation = 'destination-out';
+    const fade = cctx.createLinearGradient(0, 0, 0, h);
+    fade.addColorStop(0, 'rgba(0,0,0,0)'); fade.addColorStop(0.7, 'rgba(0,0,0,0)'); fade.addColorStop(1, 'rgba(0,0,0,1)');
+    cctx.fillStyle = fade; cctx.fillRect(0, 0, w, h);
+    cctx.globalCompositeOperation = 'source-over';
+  }
+  drawClouds();
+
+  const PART = { alto: 'the alto', soprano: 'the soprano', bass: 'the bass' };
+  const lastX = {};   // where each angel crossed, so her return rises at the same spot
+  function onMessage(m) {
+    // the crossings: what the clouds actually act on
+    if (m.kind === 'angel' && m.state === 'leaving') { caption('a red mushroom dies'); }
+    else if (m.kind === 'angel' && m.state === 'descended') { caption('an angel goes under'); }
+    else if (m.kind === 'angel' && m.state === 'returned') { caption('a red mushroom grows · she returns'); }
+  }
+  function listen() {
+    if (BUS === 'local') { bc().addEventListener('message', ev => { try { onMessage(JSON.parse(ev.data)); } catch {} }); return; }
+    const es = new EventSource(`${BUS}?room=${ROOM}`);
+    es.onmessage = ev => { try { onMessage(JSON.parse(ev.data)); } catch {} };
+    es.onerror = () => { es.close(); setTimeout(listen, 2000); };
+  }
+  listen();
+  // ── the instrument panel: drives the sky page directly (same origin) and the forest over the bus ──
+  const panel = document.getElementById('panel'), skyWin = () => document.getElementById('sky').contentWindow;
+  const D = () => skyWin() && skyWin().duality;
+  const togglePanel = () => panel.classList.toggle('on');
+  document.getElementById('panelBtn').onclick = togglePanel;
+  document.getElementById('panelLabel').onclick = togglePanel;
+  addEventListener('keydown', e => { if (e.key === 'i') togglePanel(); });
+  for (const cb of panel.querySelectorAll('input[data-part]')) cb.onchange = () => D() && D().mutePart(+cb.dataset.part, !cb.checked);
+  document.getElementById('pStyle').onchange = e => D() && D().set('style', e.target.value);
+  document.getElementById('pVoice').onchange = async e => { if (!D()) return; const ok = await D().voice(e.target.checked); if (!ok) { e.target.checked = false; alert('microphone not available — allow it for localhost in Chrome'); } };
+  document.getElementById('pEp').onchange = e => D() && D().set('instEp', e.target.checked);
+  document.getElementById('pToy').onchange = e => D() && D().set('instToy', e.target.checked);
+  document.getElementById('pTape').onchange = e => D() && D().set('instTape', e.target.checked);
+  document.getElementById('pKalimba').onchange = e => post({ from: 'world', type: 'control', kalimba: e.target.checked });
+  document.getElementById('pMaster').oninput = e => D() && D().master(+e.target.value / 100);
+  document.getElementById('pMusic').oninput = e => D() && D().set('musicVol', +e.target.value);
+  document.getElementById('pBpm').oninput = e => { document.getElementById('pBpmV').textContent = e.target.value; D() && D().set('bpm', +e.target.value); };
+  document.getElementById('pSeed').onclick = () => D() && D().newSeed();
+
+  // ── record a reel (reel.js): the controls go at the end of the panel ──
+  installReel(document.getElementById('reelBox'));
+
+  // hide the hint once both worlds have been clicked
+  addEventListener('blur', () => document.getElementById('hint').classList.add('gone'));
+})();
+</script>
+<a id="radams" href="https://rad.amsterdam" target="_blank" rel="noopener" title="RAD AMS"><img src="rad-ams.png" alt="RAD AMS"></a>
+</body>
+</html>

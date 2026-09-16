@@ -199,7 +199,7 @@
   .menuLabel:hover { color: #fff; }
   #cleanBtn { position: absolute; left: 12px; top: 10px; z-index: 7; background: rgba(0,0,0,.35); color: rgba(255,255,255,.7); border: 0; border-radius: 10px; font: 14px/1 inherit; padding: 3px 9px; cursor: pointer; }
   #cleanBtn:hover { color: #fff; }
-  /* embedded in world.html: just the sky */
+  /* embedded in symbiosis.html: just the sky */
   body.embed header, body.embed footer { display: none; }
   body.embed { grid-template-rows: 1fr; }
   /* the RAD AMS stamp, bottom right */
@@ -207,13 +207,13 @@
   #radams:hover { opacity: 1; }
   #radams img { display: block; width: 44px; height: auto; border-radius: 3px; }
   body.embed:not(.clean) #radams { display: none; }
-  body.clean #linkGroup, body.clean #lnkStatus { display: none; }   /* the sky alone has nothing to link to */   /* inside world.html the world carries the stamp */
+  body.clean #linkGroup, body.clean #lnkStatus { display: none; }   /* the sky alone has nothing to link to */   /* inside symbiosis.html the world carries the stamp */
 </style>
 </head>
 <body>
 
 <header>
-  <span class="brand">clouds <span class="explore">· explore other worlds:</span> <a href="world.html">world ·</a> <a href="duality.html">duality</a></span>
+  <span class="brand">clouds <span class="explore">· explore other worlds:</span> <a href="symbiosis.html">symbiosis ·</a> <a href="duality.html">duality</a></span>
 
   <label>tempo
     <input type="range" id="bpm" min="30" max="160" step="1" value="72">
@@ -1689,7 +1689,7 @@
       } else if (audio.on && playMode() !== 'piece') pluck(i, n, 0.4, 'up');
     }
   }
-  // the stream: an EventSource on the relay, or — when the url is "local" — a BroadcastChannel stand-in, so world.html
+  // the stream: an EventSource on the relay, or — when the url is "local" — a BroadcastChannel stand-in, so symbiosis.html
   // and both pieces can run from one static host with no server at all (same origin, same room)
   function openBus(url, room) {
     if (url !== 'local') return new EventSource(`${url}?room=${encodeURIComponent(room)}`);
@@ -1710,7 +1710,7 @@
       link.es.onopen = () => lnkStatus(`⟷ ${link.room} · listening`);
       $('linkBtn').textContent = 'disconnect';
       link.timer = setInterval(() => { if (asset) linkSend(ourState()); }, 400);
-      // remember a link you typed — not the one world.html hands us in the query string (a local bus in a one-off room)
+      // remember a link you typed — not the one symbiosis.html hands us in the query string (a local bus in a one-off room)
       if (!new URLSearchParams(location.search).has('room')) { try { localStorage.setItem('duality-link', JSON.stringify({ url: link.url, room: link.room })); } catch {} }
     } catch (e) { lnkStatus(`⟷ failed: ${e.message}`); link.es = null; }
   }
@@ -2030,7 +2030,7 @@
     .then(blobs => loadFiles(blobs.map((b, i) => new File([b], FRAME_FILES[i], { type: b.type || 'image/png' })), `angel ×${blobs.length}`))
     .catch(() => drop.classList.remove('hidden')); }
 
-  // embedded in world.html: no chrome, and join the room given in the query string
+  // embedded in symbiosis.html: no chrome, and join the room given in the query string
   {
     const q = new URLSearchParams(location.search);
     if (q.has('embed') || q.has('clean')) document.body.classList.add('embed');   // clean: the sky alone, no chrome, level horizon
@@ -2040,7 +2040,7 @@
       const h = document.createElement('div'); h.id = 'cleanHint'; h.textContent = 'click once to wake the sound · ≡ for the controls';
       main.appendChild(h);
       window.addEventListener('pointerdown', () => h.classList.add('gone'), { once: true, capture: true });
-      // ≡ (or the i key) shows and hides the toolbar, like the panel in world.html
+      // ≡ (or the i key) shows and hides the toolbar, like the panel in symbiosis.html
       const b = document.createElement('button'); b.id = 'cleanBtn'; b.textContent = '≡'; b.title = 'sound board (i)';
       const toggle = () => document.body.classList.toggle('embed');
       b.onclick = toggle; main.appendChild(b);
@@ -2052,7 +2052,7 @@
     if (q.has('clean') && q.has('me')) history.replaceState(null, '', location.pathname + '?clean=1&me=1');
   }
 
-  // controls for world.html (same origin): toggles, timbre, tempo, volume
+  // controls for symbiosis.html (same origin): toggles, timbre, tempo, volume
   window.duality = {
     set(id, value) { const el = $(id); if (!el) return; if (el.type === 'checkbox') el.checked = !!value; else el.value = value; el.dispatchEvent(new Event(el.type === 'range' ? 'input' : 'change')); },
     mutePart(i, muted) { muted ? mutedParts.add(i) : mutedParts.delete(i); if (audio.ctx) { fade(layers().part[i], !muted); if (!muted) previewPart(i); } },
