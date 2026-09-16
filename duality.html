@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUALITY</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --fg: #d0d0d0;
+    --dim: #555;
+    --accent: #7dff7d;
+    --line: #222;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    overflow: hidden;
+  }
+
+  /* ---- the idea, in a line or two ---- */
+  .about {
+    margin: 0;
+    padding: 10px 14px 0;
+    max-width: 78ch;
+    color: var(--dim);
+    font-size: 12px;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+  .about b { color: var(--fg); font-weight: normal; }
+  .about a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--dim); }
+  .about a:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---- top bar ---- */
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 18px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    user-select: none;
+  }
+  header .brand { color: var(--accent); }
+  header .brand::before { content: "> "; color: var(--dim); }
+  header .brand a { color: var(--dim); text-decoration: none; }
+  header .brand a:hover { color: var(--accent); }
+  label { color: var(--dim); }
+  label span.val { color: var(--fg); }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 140px;
+    height: 1px;
+    background: var(--dim);
+    vertical-align: middle;
+    margin: 0 8px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 8px; height: 14px;
+    background: var(--accent);
+    cursor: ew-resize;
+  }
+  input[type=number] {
+    width: 64px;
+    background: transparent;
+    color: var(--fg);
+    border: none;
+    border-bottom: 1px solid var(--dim);
+    font: inherit;
+    padding: 0 2px;
+    outline: none;
+  }
+  input[type=number]:focus { border-color: var(--accent); }
+  button {
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--dim);
+    font: inherit;
+    padding: 2px 10px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.on { border-color: var(--accent); color: var(--accent); }
+  .status { margin-left: auto; color: var(--dim); }
+  .status b { color: var(--accent); font-weight: normal; }
+
+  /* ---- stage ---- */
+  main {
+    position: relative;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    justify-items: center;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px 34px;
+    overflow: hidden;
+    min-height: 0;
+  }
+  #stage {
+    position: relative;
+    /* as tall as the room above the board allows; its width follows the image's aspect ratio, capped at the viewport */
+    height: 100%;
+    max-height: 100%;
+    width: auto;
+    max-width: 90vw;
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+    border: 1px solid var(--line);
+    background: #000;
+    overflow: hidden;
+  }
+  #stage img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: none;
+    pointer-events: none;
+  }
+  #stage img.loaded { display: block; }
+  #imgA { z-index: 2; }
+  #imgB { z-index: 1; }
+  #stage.hideA #imgA { visibility: hidden; }
+
+  /* drop zones */
+  .drops {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    pointer-events: none;
+  }
+  .drop {
+    pointer-events: auto;
+    display: grid;
+    place-items: center;
+    color: var(--dim);
+    border: 1px dashed transparent;
+    opacity: 0;
+    transition: opacity .15s;
+    text-align: center;
+    padding: 12px;
+  }
+  .drop.over { border-color: var(--accent); color: var(--accent); }
+  #stage:not(.hasA) .drop[data-slot=A],
+  #stage:not(.hasB) .drop[data-slot=B],
+  .drop.over,
+  #stage:hover .drop { opacity: 1; }
+  .drop small { display: block; color: var(--dim); }
+  .drop.filled { background: transparent; }
+  .drop.filled span { background: rgba(0,0,0,.6); padding: 2px 6px; }
+
+  /* corner tags */
+  .tag {
+    position: absolute;
+    z-index: 4;
+    top: 6px;
+    padding: 0 6px;
+    font-size: 11px;
+    color: var(--dim);
+    background: rgba(0,0,0,.6);
+    pointer-events: none;
+  }
+  .tag.a { left: 6px; }
+  .tag.b { right: 6px; }
+  .tag.live { color: var(--accent); }
+
+  /* ---- the storyboard: the same face three times, a different object each time ---- */
+  #board { display: flex; gap: 14px; align-items: flex-start; }
+  .frame {
+    display: grid; grid-template-columns: auto auto; gap: 2px;
+    padding: 2px; border: 1px solid var(--line); background: var(--line); cursor: pointer;
+    position: relative;
+  }
+  .frame:hover { border-color: var(--dim); }
+  .frame.on { border-color: var(--accent); }
+  .frame .n {
+    position: absolute; left: -1px; top: -1px; z-index: 2; padding: 0 5px;
+    font-size: 11px; color: var(--dim); background: var(--bg); border: 1px solid var(--line);
+  }
+  .frame.on .n { color: var(--accent); border-color: var(--accent); }
+  .cell {
+    position: relative; width: 112px; aspect-ratio: 1 / 1; background: #000;
+    display: grid; place-items: center; text-align: center; font-size: 11px; color: var(--dim);
+  }
+  .cell img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  .cell.filled img { display: block; }
+  .cell span { position: relative; z-index: 1; padding: 1px 5px; background: rgba(0,0,0,.6); transition: opacity .15s; }
+  .cell.filled span { opacity: 0; }
+  .cell.filled:hover span, .cell.over span { opacity: 1; }
+  .cell.over { outline: 1px dashed var(--accent); outline-offset: -1px; color: var(--accent); }
+  .cell small { display: block; }
+  .cell.a.filled::after { content: "same"; position: absolute; right: 3px; bottom: 2px; font-size: 10px; color: var(--dim); background: rgba(0,0,0,.6); padding: 0 4px; }
+
+  footer {
+    position: absolute;
+    bottom: 8px;
+    left: 14px;
+    color: var(--dim);
+    font-size: 11px;
+    user-select: none;
+  }
+  kbd { color: var(--fg); }
+  /* the RAD AMS stamp, bottom right */
+  #radams { position: absolute; right: 14px; bottom: 12px; z-index: 9; opacity: .45; transition: opacity .3s; }
+  #radams:hover { opacity: 1; }
+  #radams img { display: block; width: 34px; height: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">duality <a href="clouds.html">· clouds</a> <a href="world.html">· world</a></span>
+
+  <label>on
+    <input type="range" id="onRange" min="50" max="5000" step="50" value="1000">
+    <input type="number" id="onNum" min="10" step="10" value="1000">ms
+  </label>
+
+  <label>off
+    <input type="range" id="offRange" min="50" max="5000" step="50" value="1000">
+    <input type="number" id="offNum" min="10" step="10" value="1000">ms
+  </label>
+
+  <label><input type="checkbox" id="linkToggle" checked> link</label>
+
+  <button id="runBtn" class="on">running</button>
+  <button id="swapBtn" title="swap A and B">swap</button>
+  <button id="clearBtn" title="clear both">clear</button>
+
+  <span class="status">A: <b id="stateA">on</b> · cycle <b id="cycle">0</b></span>
+</header>
+
+<p class="about">an ode to the <b>Kuleshov effect</b> (introduced to me by <a href="https://geoffreylillemon.com" target="_blank" rel="noopener">Geoffrey Lillemon</a>), the cut that underpins all of cinema and film:
+  two images, one after the other. one keeps changing while the other stays the same — same face, same expression, a different object — and your brain conjures a different meaning each time, by visual association.
+  try it: drop a close-up of a face with one expression as <b>A</b>, and an object as <b>B</b>. then swap the object.</p>
+
+<main>
+  <div id="stage">
+    <img id="imgB" alt="">
+    <img id="imgA" alt="">
+    <span class="tag a live" id="tagA">A · top</span>
+    <span class="tag b" id="tagB">B · under</span>
+    <div class="drops">
+      <div class="drop" data-slot="A"><span>drop image A<small>(top — blinks)</small></span></div>
+      <div class="drop" data-slot="B"><span>drop image B<small>(under — revealed)</small></span></div>
+    </div>
+  </div>
+  <section id="board" aria-label="storyboard">
+    <div class="frame on" data-i="0"><span class="n">1</span>
+      <div class="cell a" data-slot="A"><img alt=""><span>A<small>the face</small></span></div>
+      <div class="cell b" data-slot="B" data-i="0"><img alt=""><span>B₁<small>an object</small></span></div>
+    </div>
+    <div class="frame" data-i="1"><span class="n">2</span>
+      <div class="cell a" data-slot="A"><img alt=""><span>A<small>the same face</small></span></div>
+      <div class="cell b" data-slot="B" data-i="1"><img alt=""><span>B₂<small>another object</small></span></div>
+    </div>
+    <div class="frame" data-i="2"><span class="n">3</span>
+      <div class="cell a" data-slot="A"><img alt=""><span>A<small>the same face</small></span></div>
+      <div class="cell b" data-slot="B" data-i="2"><img alt=""><span>B₃<small>a third</small></span></div>
+    </div>
+  </section>
+  <footer><kbd>space</kbd> pause · <kbd>↑</kbd><kbd>↓</kbd> ±100ms · <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> <kbd>←</kbd><kbd>→</kbd> frame · <kbd>s</kbd> swap · drop several files at once: first→A, the rest→B₁ B₂ B₃</footer>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const stage = $('stage');
+  const imgs = { A: $('imgA'), B: $('imgB') };
+  const onRange = $('onRange'), onNum = $('onNum');
+  const offRange = $('offRange'), offNum = $('offNum');
+  const link = $('linkToggle');
+  const runBtn = $('runBtn'), swapBtn = $('swapBtn'), clearBtn = $('clearBtn');
+  const stateA = $('stateA'), cycleEl = $('cycle');
+
+  let onMs = 1000, offMs = 1000;
+  let running = true;
+  let aVisible = true;
+  let cycles = 0;
+  let timer = null;
+  const urls = { A: null, B: null };
+
+  /* ---- timing ---- */
+  function setOn(v, fromLink) {
+    onMs = Math.max(10, v | 0);
+    onRange.value = onMs; onNum.value = onMs;
+    if (link.checked && !fromLink) setOff(onMs, true);
+  }
+  function setOff(v, fromLink) {
+    offMs = Math.max(10, v | 0);
+    offRange.value = offMs; offNum.value = offMs;
+    if (link.checked && !fromLink) setOn(offMs, true);
+  }
+  onRange.oninput = () => setOn(onRange.value);
+  onNum.oninput   = () => setOn(onNum.value);
+  offRange.oninput = () => setOff(offRange.value);
+  offNum.oninput   = () => setOff(offNum.value);
+  link.onchange = () => { if (link.checked) setOff(onMs, true); };
+
+  /* ---- loop ---- */
+  function render() {
+    stage.classList.toggle('hideA', !aVisible);
+    stateA.textContent = aVisible ? 'on' : 'off';
+    $('tagA').classList.toggle('live', aVisible);
+    $('tagB').classList.toggle('live', !aVisible);
+    cycleEl.textContent = cycles;
+  }
+  function tick() {
+    aVisible = !aVisible;
+    if (aVisible) cycles++;
+    render();
+    schedule();
+  }
+  function schedule() {
+    clearTimeout(timer);
+    if (!running) return;
+    timer = setTimeout(tick, aVisible ? onMs : offMs);
+  }
+  function setRunning(v) {
+    running = v;
+    runBtn.textContent = running ? 'running' : 'paused';
+    runBtn.classList.toggle('on', running);
+    if (running) schedule(); else clearTimeout(timer);
+  }
+  runBtn.onclick = () => setRunning(!running);
+
+  /* ---- the storyboard: one face (A) shared by three frames, each with its own object (B) ---- */
+  const board = { A: null, B: [null, null, null], cur: 0, thumbs: {} };   // Files; thumbs: object urls for the small images
+  const frames = [...document.querySelectorAll('#board .frame')];
+  function thumb(cell, file) {
+    const key = cell.classList.contains('a') ? 'A' : 'B' + cell.dataset.i;
+    const img = cell.querySelector('img');
+    if (!file) { img.removeAttribute('src'); cell.classList.remove('filled'); return; }
+    if (cell.classList.contains('a')) {   // one url shared by the three A cells
+      if (!board.thumbs.A || board.thumbs.Afile !== file) { if (board.thumbs.A) URL.revokeObjectURL(board.thumbs.A); board.thumbs.A = URL.createObjectURL(file); board.thumbs.Afile = file; }
+      img.src = board.thumbs.A;
+    } else {
+      if (board.thumbs[key]) URL.revokeObjectURL(board.thumbs[key]);
+      board.thumbs[key] = URL.createObjectURL(file); img.src = board.thumbs[key];
+    }
+    cell.classList.add('filled');
+  }
+  function setA(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    board.A = file;
+    document.querySelectorAll('#board .cell.a').forEach(c => thumb(c, file));
+    load('A', file);
+  }
+  function setB(i, file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    board.B[i] = file;
+    thumb(document.querySelector(`#board .cell.b[data-i="${i}"]`), file);
+    if (i === board.cur) load('B', file); else show(i);
+  }
+  function show(i) {   // cut to frame i: the same A, that frame's B
+    board.cur = i;
+    frames.forEach((f, k) => f.classList.toggle('on', k === i));
+    if (board.B[i]) load('B', board.B[i]);
+    else { if (urls.B) URL.revokeObjectURL(urls.B); urls.B = null; imgs.B.removeAttribute('src'); imgs.B.classList.remove('loaded'); stage.classList.remove('hasB'); resetDropLabel('B'); }
+    aVisible = true; render(); schedule();   // start the frame with the face
+  }
+  // files dropped in a bunch: the first is the face, the rest are the objects, from frame `from` on
+  function placeMany(files, from = 0) {
+    files = files.filter(f => f.type.startsWith('image/'));
+    if (!files.length) return;
+    setA(files[0]);
+    files.slice(1, 4).forEach((f, k) => { if (from + k < 3) setB(from + k, f); });
+    show(from);
+  }
+  frames.forEach(f => f.addEventListener('click', e => { if (!e.target.closest('.cell')) show(+f.dataset.i); }));
+  document.querySelectorAll('#board .cell').forEach(c => {
+    const isA = c.classList.contains('a'), i = +c.dataset.i;
+    c.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); c.classList.add('over'); });
+    c.addEventListener('dragleave', () => c.classList.remove('over'));
+    c.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation(); c.classList.remove('over');
+      const files = [...e.dataTransfer.files];
+      if (files.length >= 2) placeMany(files, isA ? +c.closest('.frame').dataset.i : i);
+      else if (isA) { setA(files[0]); show(+c.closest('.frame').dataset.i); }
+      else setB(i, files[0]);
+    });
+    c.addEventListener('click', e => {   // click a cell to pick its image; the frame around it becomes current
+      e.stopPropagation();
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+      inp.onchange = () => { const files = [...inp.files]; if (files.length >= 2) placeMany(files, isA ? +c.closest('.frame').dataset.i : i); else if (isA) { setA(files[0]); show(+c.closest('.frame').dataset.i); } else setB(i, files[0]); };
+      inp.click();
+    });
+  });
+  function resetDropLabel(s) {
+    const d = stage.querySelector(`.drop[data-slot=${s}]`);
+    d.classList.remove('filled');
+    d.querySelector('span').innerHTML = s === 'A' ? 'drop image A<small>(top — blinks)</small>' : 'drop image B<small>(under — revealed)</small>';
+  }
+
+  /* ---- images ---- */
+  function load(slot, file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (urls[slot]) URL.revokeObjectURL(urls[slot]);
+    urls[slot] = URL.createObjectURL(file);
+    imgs[slot].src = urls[slot];
+    imgs[slot].classList.add('loaded');
+    stage.classList.add('has' + slot);
+    const d = stage.querySelector(`.drop[data-slot=${slot}]`);
+    d.classList.add('filled');
+    d.querySelector('span').innerHTML = `${slot}: ${file.name}<small>drop to replace</small>`;
+    // keep stage aspect matching first loaded image
+    if (!stage.dataset.ratio) {
+      const probe = new Image();
+      probe.onload = () => {
+        stage.dataset.ratio = 1;
+        stage.style.aspectRatio = `${probe.naturalWidth} / ${probe.naturalHeight}`;
+      };
+      probe.src = urls[slot];
+    }
+  }
+
+  function swap() {
+    const b = board.B[board.cur]; board.B[board.cur] = board.A; board.A = b;
+    document.querySelectorAll('#board .cell.a').forEach(c => thumb(c, board.A));
+    thumb(document.querySelector(`#board .cell.b[data-i="${board.cur}"]`), board.B[board.cur]);
+    [urls.A, urls.B] = [urls.B, urls.A];
+    [imgs.A.src, imgs.B.src] = [imgs.B.src, imgs.A.src];
+    const hasA = !!urls.A, hasB = !!urls.B;
+    imgs.A.classList.toggle('loaded', hasA);
+    imgs.B.classList.toggle('loaded', hasB);
+    stage.classList.toggle('hasA', hasA);
+    stage.classList.toggle('hasB', hasB);
+    const dA = stage.querySelector('.drop[data-slot=A] span');
+    const dB = stage.querySelector('.drop[data-slot=B] span');
+    [dA.innerHTML, dB.innerHTML] = [
+      dB.innerHTML.replace(/^B:/, 'A:'),
+      dA.innerHTML.replace(/^A:/, 'B:')
+    ];
+  }
+  swapBtn.onclick = swap;
+
+  function clearAll() {
+    board.A = null; board.B = [null, null, null];
+    document.querySelectorAll('#board .cell').forEach(c => thumb(c, null));
+    for (const k in board.thumbs) if (k !== 'Afile' && board.thumbs[k]) URL.revokeObjectURL(board.thumbs[k]);
+    board.thumbs = {};
+    show(0);
+    for (const s of ['A', 'B']) {
+      if (urls[s]) URL.revokeObjectURL(urls[s]);
+      urls[s] = null;
+      imgs[s].removeAttribute('src');
+      imgs[s].classList.remove('loaded');
+      stage.classList.remove('has' + s);
+      const d = stage.querySelector(`.drop[data-slot=${s}]`);
+      d.classList.remove('filled');
+      d.querySelector('span').innerHTML = s === 'A'
+        ? 'drop image A<small>(top — blinks)</small>'
+        : 'drop image B<small>(under — revealed)</small>';
+    }
+    stage.style.aspectRatio = '';
+    delete stage.dataset.ratio;
+    cycles = 0; render();
+  }
+  clearBtn.onclick = clearAll;
+
+  /* ---- drag & drop ---- */
+  document.querySelectorAll('.drop').forEach(d => {
+    d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('over'); });
+    d.addEventListener('dragleave', () => d.classList.remove('over'));
+    d.addEventListener('drop', e => {
+      e.preventDefault(); d.classList.remove('over');
+      const files = [...e.dataTransfer.files];
+      if (files.length >= 2) placeMany(files);
+      else d.dataset.slot === 'A' ? setA(files[0]) : setB(board.cur, files[0]);
+    });
+    // click to pick
+    d.addEventListener('click', () => {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+      inp.onchange = () => { const files = [...inp.files]; if (files.length >= 2) placeMany(files); else d.dataset.slot === 'A' ? setA(files[0]) : setB(board.cur, files[0]); };
+      inp.click();
+    });
+  });
+  // swallow drops elsewhere so the browser doesn't navigate
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => e.preventDefault());
+
+  /* ---- keys ---- */
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (e.code === 'Space') { e.preventDefault(); setRunning(!running); }
+    else if (e.key === 'ArrowUp')   { setOn(onMs + 100); if (!link.checked) setOff(offMs + 100); }
+    else if (e.key === 'ArrowDown') { setOn(onMs - 100); if (!link.checked) setOff(offMs - 100); }
+    else if (e.key === 's') swap();
+    else if ('123'.includes(e.key) && e.key) show(+e.key - 1);
+    else if (e.key === 'ArrowRight') show((board.cur + 1) % 3);
+    else if (e.key === 'ArrowLeft') show((board.cur + 2) % 3);
+  });
+
+  render();
+  schedule();
+})();
+</script>
+<a id="radams" href="https://rad.amsterdam" target="_blank" rel="noopener" title="RAD AMS"><img src="rad-ams.png" alt="RAD AMS"></a>
+</body>
+</html>

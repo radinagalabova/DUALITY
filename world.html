@@ -42,6 +42,8 @@
     padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12);
   }
   #panel.on { display: block; }
+  #panel a.piece { display: block; color: #d0d0d0; text-decoration: none; }
+  #panel a.piece:hover { color: #fff; text-decoration: underline; }
   #panel h4 { margin: 6px 0 2px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #7dff7d; font-weight: normal; }
   #panel label { display: block; color: #aaa; white-space: nowrap; }
   #panel select, #panel input[type=range] { background: transparent; color: #d0d0d0; border: none; border-bottom: 1px solid #555; font: inherit; }
@@ -87,6 +89,9 @@
   <label>instruments <input type="range" id="pMusic" min="0" max="100" value="65"></label>
   <label>tempo <input type="range" id="pBpm" min="30" max="160" value="72"> <span id="pBpmV">72</span></label>
   <button id="pSeed">new piece</button>
+  <h4>pieces</h4>
+  <a href="sky.html" class="piece">the sky alone</a>
+  <a href="duality.html" class="piece">duality · the Kuleshov tool</a>
   <h4>record a reel</h4>
 </div>
 
