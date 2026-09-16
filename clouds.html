@@ -41,6 +41,7 @@
   header .brand .explore { color: var(--dim); }
   header .tip { color: var(--dim); font-size: 11px; line-height: 1.3; max-width: 34ch; }
   header .tip b { color: var(--fg); font-weight: normal; }
+  #xiKey { -webkit-text-security: disc; }   /* masked like a password, but not a password field: password managers leave it alone */
   #askLine:not(:empty) { display: block; color: #ffd76a; }   /* the request, right where the key goes */
   #favBtn { padding: 2px 7px; }
   #favBtn.on { color: #ff7a9a; border-color: #ff7a9a; }
@@ -308,7 +309,7 @@
       <option value="synth">synth</option>
     </select>
   </label>
-  <input type="password" id="xiKey" placeholder="xi-api-key" autocomplete="off" spellcheck="false">
+  <input type="text" id="xiKey" placeholder="xi-api-key" autocomplete="off" spellcheck="false" autocapitalize="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other">
   <button id="regenBtn" title="generate a fresh set of voice samples">regen</button>
   <span class="tip"><span id="askLine"></span>your own ElevenLabs key: <b>regen</b> gives the angels new voices, <b>recompose</b> a new organ track · stays in this browser</span>
   <label>music
