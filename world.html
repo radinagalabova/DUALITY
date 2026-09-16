@@ -50,6 +50,10 @@
   #panel input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 8px; height: 14px; background: #7dff7d; }
   #panel button { margin-top: 6px; background: transparent; color: #d0d0d0; border: 1px solid #555; font: inherit; padding: 2px 10px; cursor: pointer; }
   #panel button:hover { border-color: #7dff7d; color: #7dff7d; }
+  /* the RAD AMS stamp, bottom right */
+  #radams { position: absolute; right: 14px; bottom: 12px; z-index: 9; opacity: .45; transition: opacity .3s; }
+  #radams:hover { opacity: 1; }
+  #radams img { display: block; width: 34px; height: auto; }
 </style>
 </head>
 <body>
@@ -183,5 +187,6 @@
   addEventListener('blur', () => document.getElementById('hint').classList.add('gone'));
 })();
 </script>
+<a id="radams" href="https://rad.amsterdam" target="_blank" rel="noopener" title="RAD AMS"><img src="rad-ams.png" alt="RAD AMS"></a>
 </body>
 </html>
