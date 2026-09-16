@@ -305,12 +305,13 @@
       <option value="mixed">mixed (alternating)</option>
     </select>
     <select id="voice">
-      <option value="eleven">elevenlabs</option>
       <option value="synth">synth</option>
+      <option value="eleven">elevenlabs</option>
     </select>
   </label>
   <input type="text" id="xiKey" placeholder="xi-api-key" autocomplete="off" spellcheck="false" autocapitalize="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other">
   <button id="regenBtn" title="generate a fresh set of voice samples">regen</button>
+  <button id="keepBtn" title="save the current voices as mp3 files, to keep them or ship them with the site">keep</button>
   <span class="tip"><span id="askLine"></span>your own ElevenLabs key: <b>regen</b> gives the angels new voices, <b>recompose</b> a new organ track · stays in this browser</span>
   <label>music
     <select id="music">
@@ -1147,6 +1148,7 @@
       const ctx = ensureCtx();
       let raw = null;
       if (!force) { try { const c = localStorage.getItem(st.cache); if (c) raw = JSON.parse(c).map(unb64); } catch {} }
+      if (!raw && !force) raw = await keptVoices(name, st.prompts.length);   // a set kept in the voices/ folder (see the keep button)
       if (!raw) {
         const key = $('xiKey').value.trim();
         if (!key) { sndStatus(`♪ synth ${name} (no elevenlabs key)`); if (force) ask('paste your ElevenLabs key here first, then regen'); audio.bufs[name] = []; return; }
@@ -1161,6 +1163,23 @@
     } finally { audio.busy = false; }
   }
 
+  // kept voices: voices/<style>/0.mp3 … — files saved with the keep button and dropped into the project, so a set you love
+  // plays for everyone, key or no key. Missing files mean "no kept set".
+  async function keptVoices(name, n) {
+    try {
+      const rs = await Promise.all(Array.from({ length: n }, (_, i) => fetch(`voices/${name}/${i}.mp3`)));
+      if (!rs.every(r => r.ok)) return null;
+      return Promise.all(rs.map(r => r.arrayBuffer()));
+    } catch { return null; }
+  }
+  // keep: download the current set of this style's voices as mp3s (named for the voices/ folder)
+  async function keepVoices() {
+    const name = $('style').value === 'ensemble' ? 'meow' : $('style').value, st = STYLES[name];
+    let raw = null; try { const c = localStorage.getItem(st.cache); if (c) raw = JSON.parse(c).map(unb64); } catch {}
+    if (!raw) { sndStatus(`♪ nothing to keep yet: these ${name}s are the synth's`); return; }
+    raw.forEach((b, i) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([b], { type: 'audio/mpeg' })); a.download = `${name}-${i}.mp3`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); });
+    sndStatus(`♪ kept ${raw.length} ${name} files in Downloads → put them in voices/${name}/ as 0.mp3 1.mp3 … and they ship with the site`);
+  }
   function playBuffer(buf, ratio, pan, gain, when) {
     const ctx = audio.ctx, t = Math.max(ctx.currentTime, when || 0);
     const src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = ratio;
@@ -1923,6 +1942,7 @@
   sndStatus('♪ click anywhere to start sound');
   $('voice').onchange = () => { if (audio.on) setSound(true); };
   $('style').onchange = () => { if (audio.on) { setSound(true); if (['vox', 'ensemble', 'piano', 'toy'].includes($('style').value)) loadPiece(); } };
+  $('keepBtn').onclick = keepVoices;
   $('regenBtn').onclick = async () => { if (!audio.on) await setSound(true); $('voice').value = 'eleven'; await loadPlucks(true); };
   try { $('xiKey').value = localStorage.getItem(KEY_KEY) || ''; } catch {}
   $('xiKey').onchange = () => { try { localStorage.setItem(KEY_KEY, $('xiKey').value.trim()); } catch {} };
