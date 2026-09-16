@@ -312,6 +312,7 @@
   <input type="text" id="xiKey" placeholder="xi-api-key" autocomplete="off" spellcheck="false" autocapitalize="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other">
   <button id="regenBtn" title="generate a fresh set of voice samples">regen</button>
   <button id="keepBtn" title="save the current voices as mp3 files, to keep them or ship them with the site">keep</button>
+  <button id="ogBtn" title="back to how it opens: original voices, ensemble, piano · toy · tape, music off, 72 bpm">OG</button>
   <span class="tip"><span id="askLine"></span>your own ElevenLabs key: <b>regen</b> gives the angels new voices, <b>recompose</b> a new organ track · stays in this browser</span>
   <label>music
     <select id="music">
@@ -1951,6 +1952,15 @@
   $('voice').onchange = () => { if (audio.on) setSound(true); };
   $('style').onchange = () => { if (audio.on) { setSound(true); if (['vox', 'ensemble', 'piano', 'toy'].includes($('style').value)) loadPiece(); } };
   $('keepBtn').onclick = keepVoices;
+  // OG: the sound as the page opens — nothing you've kept or saved is touched, just the dials go home
+  $('ogBtn').onclick = () => {
+    const set = window.duality.set;
+    set('voice', 'synth'); set('style', 'ensemble'); set('music', 'off'); music.chosen = false;
+    set('instEp', true); set('instToy', true); set('instTape', true); set('halo', true); set('parallax', true);
+    set('bpm', 72); set('musicVol', 65); set('choirN', '3'); set('sky', 'sunset'); set('lead', 'none');
+    if ($('play').value !== 'piece') set('play', 'piece');
+    sndStatus('♪ OG · back to how it opens');
+  };
   $('regenBtn').onclick = async () => { if (!audio.on) await setSound(true); $('voice').value = 'eleven'; await loadPlucks(true); };
   try { $('xiKey').value = localStorage.getItem(KEY_KEY) || ''; } catch {}
   $('xiKey').onchange = () => { try { localStorage.setItem(KEY_KEY, $('xiKey').value.trim()); } catch {} };
