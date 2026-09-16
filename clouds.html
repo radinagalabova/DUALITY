@@ -41,6 +41,7 @@
   header .brand .explore { color: var(--dim); }
   header .tip { color: var(--dim); font-size: 11px; line-height: 1.3; max-width: 34ch; }
   header .tip b { color: var(--fg); font-weight: normal; }
+  #askLine:not(:empty) { display: block; color: #ffd76a; }   /* the request, right where the key goes */
   #favBtn { padding: 2px 7px; }
   #favBtn.on { color: #ff7a9a; border-color: #ff7a9a; }
   #favs { max-width: 110px; }
@@ -309,7 +310,7 @@
   </label>
   <input type="password" id="xiKey" placeholder="xi-api-key" autocomplete="off" spellcheck="false">
   <button id="regenBtn" title="generate a fresh set of voice samples">regen</button>
-  <span class="tip">your own ElevenLabs key: <b>regen</b> gives the angels new voices, <b>recompose</b> a new organ track · stays in this browser</span>
+  <span class="tip"><span id="askLine"></span>your own ElevenLabs key: <b>regen</b> gives the angels new voices, <b>recompose</b> a new organ track · stays in this browser</span>
   <label>music
     <select id="music">
       <option value="off">off</option>
@@ -1147,7 +1148,7 @@
       if (!force) { try { const c = localStorage.getItem(st.cache); if (c) raw = JSON.parse(c).map(unb64); } catch {} }
       if (!raw) {
         const key = $('xiKey').value.trim();
-        if (!key) { sndStatus(force ? `♪ synth ${name} · paste an elevenlabs key in the box to regen the voices` : `♪ synth ${name} (no elevenlabs key)`); audio.bufs[name] = []; return; }
+        if (!key) { sndStatus(`♪ synth ${name} (no elevenlabs key)`); if (force) ask('paste your ElevenLabs key here first, then regen'); audio.bufs[name] = []; return; }
         raw = await fetchPlucks(key, st);
         try { localStorage.setItem(st.cache, JSON.stringify(raw.map(b64))); } catch {}
       }
@@ -1893,7 +1894,7 @@
   const musicForMode = () => { if (!music.chosen) $('music').value = playMode() === 'piece' ? 'off' : 'eleven'; };
   $('musicVol').oninput = () => { if (music.gain) musicGain(); };
   $('remusicBtn').onclick = async () => {
-    if (!$('xiKey').value.trim()) { musStatus('♫ paste an elevenlabs key in the box to compose a new track'); return; }
+    if (!$('xiKey').value.trim()) { ask('paste your ElevenLabs key here first, then recompose'); return; }
     if (!audio.on) await setSound(true); $('music').value = 'eleven'; startMusic(true);
   };
 
@@ -1924,6 +1925,8 @@
   $('regenBtn').onclick = async () => { if (!audio.on) await setSound(true); $('voice').value = 'eleven'; await loadPlucks(true); };
   try { $('xiKey').value = localStorage.getItem(KEY_KEY) || ''; } catch {}
   $('xiKey').onchange = () => { try { localStorage.setItem(KEY_KEY, $('xiKey').value.trim()); } catch {} };
+  const ask = t => { $('askLine').textContent = t; $('xiKey').focus(); };
+  $('xiKey').oninput = () => { $('askLine').textContent = ''; };
 
   /* ---- loop ---- */
   function animate() {
