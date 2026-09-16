@@ -39,6 +39,9 @@
   header .brand { color: var(--accent); }
   header .brand::before { content: "> "; color: var(--dim); }
   header .brand .explore { color: var(--dim); }
+  #favBtn { padding: 2px 7px; }
+  #favBtn.on { color: #ff7a9a; border-color: #ff7a9a; }
+  #favs { max-width: 110px; }
   header .brand a { color: var(--fg); text-decoration: none; }
   header .brand a:hover { color: var(--accent); }
   label { color: var(--dim); white-space: nowrap; }
@@ -268,6 +271,8 @@
   <span class="sep"></span>
   <label>seed <input type="number" id="pieceSeed" min="1" step="1" value="1"></label>
   <button id="newSeedBtn" title="a new piece">new</button>
+  <button id="favBtn" class="fav" title="save this tune (it's kept in this browser)">♡</button>
+  <select id="favs" title="saved tunes"><option value="">saved…</option></select>
   <label><input type="checkbox" id="instEp" checked> ep09</label>
   <label><input type="checkbox" id="instToy" checked> toy piano</label>
   <label><input type="checkbox" id="instTape" checked> tape</label>
@@ -1439,9 +1444,29 @@
   function newSeed(seed) {
     $('pieceSeed').value = seed || (1 + Math.floor(Math.random() * 99999));
     if (piece.engine) { piece.engine.stop(); piece.engine.setSeed(+$('pieceSeed').value); if (playMode() === 'piece' && audio.on) piece.engine.start(); }
+    paintFavs();
   }
   $('newSeedBtn').onclick = () => newSeed();
   $('pieceSeed').onchange = () => newSeed(+$('pieceSeed').value || 1);
+  // ♥ saved tunes: a seed is the whole piece, so a list of seeds is a record collection (kept in this browser)
+  const FAVS = 'duality-favs';
+  const favs = () => { try { return JSON.parse(localStorage.getItem(FAVS) || '[]'); } catch { return []; } };
+  function paintFavs() {
+    const list = favs(), cur = +$('pieceSeed').value, sel = $('favs');
+    sel.innerHTML = '<option value="">saved…</option>' + list.map(f => `<option value="${f.seed}">${f.seed} · ${f.key || ''} ${f.when}</option>`).join('');
+    sel.value = list.some(f => f.seed === cur) ? String(cur) : '';
+    $('favBtn').classList.toggle('on', list.some(f => f.seed === cur));
+    $('favBtn').textContent = list.some(f => f.seed === cur) ? '♥' : '♡';
+  }
+  $('favBtn').onclick = () => {
+    const cur = +$('pieceSeed').value; let list = favs();
+    if (list.some(f => f.seed === cur)) list = list.filter(f => f.seed !== cur);   // ♥ again forgets it
+    else list.unshift({ seed: cur, key: piece.engine ? `${Acapella.NOTE_NAMES[piece.engine.tonic % 12]} ${piece.engine.mode}` : '', when: new Date().toISOString().slice(5, 10).replace('-', '/') });
+    try { localStorage.setItem(FAVS, JSON.stringify(list.slice(0, 40))); } catch {}
+    paintFavs();
+  };
+  $('favs').onchange = () => { if ($('favs').value) newSeed(+$('favs').value); paintFavs(); };
+  paintFavs();
   // a toggle is heard immediately: the fader moves now, and switching on plays a taste of that layer
   function previewChord() {
     const e = piece.engine, s = piece.s; if (!s || !s.ep.ready) return;
