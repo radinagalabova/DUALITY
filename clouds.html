@@ -1837,7 +1837,9 @@
     try {
       let raw = null;
       if (!force && !music.buffer) { try { const c = localStorage.getItem(MUSIC_KEY); if (c) raw = unb64(c); } catch {} }
-      if (force || (!music.buffer && !raw)) {
+      // only the recompose button composes (it costs credits): picking "elevenlabs" with no track yet just plays the organ and says so
+      if (!force && !music.buffer && !raw) { music.synth = synthOrgan(out); musStatus('♫ synth organ · no elevenlabs track yet — recompose makes one' + under); return; }
+      if (force) {
         const key = $('xiKey').value.trim();
         if (!key) { music.synth = synthOrgan(out); musStatus('♫ synth organ (no elevenlabs key)' + under); return; }
         // organ in the meantime, so the wait isn't silent
