@@ -321,7 +321,7 @@
 </header>
 
 <main id="main">
-  <div id="drop">
+  <div id="drop" class="hidden">
     <span>drop angel frames<small>one png, or several poses of the same figure · click to pick</small></span>
   </div>
   <div id="partnerVeil"></div>
@@ -2019,9 +2019,10 @@
   };
   if (wantMe) loadMe().then(ok => { if (!ok) loadDefaults(); });
   else loadDefaults();
+  // the drop zone starts hidden and only appears if the frames can't be fetched (file://), so it never flashes before the angels arrive
   function loadDefaults() { Promise.all(FRAME_FILES.map(f => fetch(f).then(r => r.ok ? r.blob() : Promise.reject(f))))
     .then(blobs => loadFiles(blobs.map((b, i) => new File([b], FRAME_FILES[i], { type: b.type || 'image/png' })), `angel ×${blobs.length}`))
-    .catch(() => {}); }
+    .catch(() => drop.classList.remove('hidden')); }
 
   // embedded in world.html: no chrome, and join the room given in the query string
   {
