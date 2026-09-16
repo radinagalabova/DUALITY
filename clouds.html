@@ -216,6 +216,7 @@
   #radams img { display: block; width: 44px; height: auto; border-radius: 3px; }
   body.embed:not(.clean) #radams { display: none; }
   #linkGroup { display: contents; }
+  body.clean .eleven { display: none !important; }   /* the public page never asks anyone for an API key */
   body.clean #linkGroup, body.clean #lnkStatus { display: none; }   /* the sky alone has nothing to link to */   /* inside symbiosis.html the world carries the stamp */
 </style>
 </head>
@@ -309,28 +310,28 @@
       <option value="synth">original</option>
       <option value="eleven">elevenlabs</option>
     </select>
-    <button id="voiceFav" class="fav" title="save this set of voices (kept in this browser)">♡</button>
-    <select id="voiceSets" title="saved voices"><option value="">voices…</option></select>
+    <button id="voiceFav" class="fav eleven" title="save this set of voices (kept in this browser)">♡</button>
+    <select id="voiceSets" class="eleven" title="saved voices"><option value="">voices…</option></select>
   </label>
-  <input type="text" id="xiKey" placeholder="xi-api-key" autocomplete="off" spellcheck="false" autocapitalize="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other">
-  <button id="regenBtn" title="generate a fresh set of voice samples">regen</button>
-  <button id="keepBtn" title="save the current voices as mp3 files, to keep them or ship them with the site">keep</button>
+  <input type="text" id="xiKey" class="eleven" placeholder="xi-api-key" autocomplete="off" spellcheck="false" autocapitalize="off" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other">
+  <button id="regenBtn" class="eleven" title="generate a fresh set of voice samples">regen</button>
+  <button id="keepBtn" class="eleven" title="save the current voices as mp3 files, to keep them or ship them with the site">keep</button>
   <button id="ogBtn" title="back to how it opens: original voices, ensemble, piano · toy · tape, music off, 72 bpm">OG</button>
   <button id="saveBoardBtn" title="save the whole sound board under a name (kept in this browser)">save board</button>
   <select id="boards" title="saved sound boards"><option value="">boards…</option></select>
-  <span class="tip"><span id="askLine"></span>your own ElevenLabs key: <b>regen</b> gives the angels new voices, <b>recompose</b> a new organ track · stays in this browser</span>
+  <span class="tip eleven"><span id="askLine"></span>your own ElevenLabs key: <b>regen</b> gives the angels new voices, <b>recompose</b> a new organ track · stays in this browser</span>
   <label>music
     <select id="music">
       <option value="off">off</option>
       <option value="synth">synth organ</option>
       <option value="eleven">elevenlabs</option>
     </select>
-    <button id="musicFav" class="fav" title="save this organ track (kept in this browser)">♡</button>
-    <select id="musicSets" title="saved tracks"><option value="">tracks…</option></select>
+    <button id="musicFav" class="fav eleven" title="save this organ track (kept in this browser)">♡</button>
+    <select id="musicSets" class="eleven" title="saved tracks"><option value="">tracks…</option></select>
     <input type="range" id="musicVol" min="0" max="100" step="1" value="65">
   </label>
-  <button id="remusicBtn" title="compose a fresh backdrop track">recompose</button>
-  <button id="keepTrackBtn" title="save the current organ track as an mp3: into music/ in the studio, so it can ship with the site">keep</button>
+  <button id="remusicBtn" class="eleven" title="compose a fresh backdrop track">recompose</button>
+  <button id="keepTrackBtn" class="eleven" title="save the current organ track as an mp3: into music/ in the studio, so it can ship with the site">keep</button>
   <span id="linkGroup">
   <span class="sep"></span>
   <label>link <input type="text" id="linkUrl" placeholder="bus url" spellcheck="false"></label>
@@ -2240,7 +2241,13 @@
   {
     const q = new URLSearchParams(location.search);
     if (q.has('embed') || q.has('clean')) document.body.classList.add('embed');   // clean: the sky alone, no chrome, level horizon
-    if (q.has('clean')) { document.body.classList.add('clean'); document.title = 'DUALITY · ACAPELLA ANGELS'; }
+    if (q.has('clean')) {
+      document.body.classList.add('clean'); document.title = 'DUALITY · ACAPELLA ANGELS';
+      // no key on the public page: "elevenlabs" is offered only as a kept studio set that ships with the site
+      const opt = (sel, keep, label) => { const o = $(sel).querySelector('option[value="eleven"]'); if (!o) return; if (keep) o.textContent = label; else o.remove(); };
+      fetch('voices/meow/0.mp3', { method: 'HEAD' }).then(r => opt('voice', r.ok, 'studio voices')).catch(() => opt('voice', false));
+      fetch('music/organ.mp3', { method: 'HEAD' }).then(r => opt('music', r.ok, 'studio track')).catch(() => opt('music', false));
+    }
     if (q.has('lite')) { $('instEp').checked = false; $('instToy').checked = false; $('style').value = 'meow'; }
     if (q.has('clean')) {
       const h = document.createElement('div'); h.id = 'cleanHint'; h.textContent = 'click once to wake the sound · ≡ for the controls';
