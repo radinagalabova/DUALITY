@@ -330,6 +330,7 @@
     <input type="range" id="musicVol" min="0" max="100" step="1" value="65">
   </label>
   <button id="remusicBtn" title="compose a fresh backdrop track">recompose</button>
+  <button id="keepTrackBtn" title="save the current organ track as an mp3: into music/ in the studio, so it can ship with the site">keep</button>
   <span id="linkGroup">
   <span class="sep"></span>
   <label>link <input type="text" id="linkUrl" placeholder="bus url" spellcheck="false"></label>
@@ -1196,6 +1197,17 @@
     raw.forEach((b, i) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([b], { type: 'audio/mpeg' })); a.download = `${name}-${i}.mp3`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); });
     sndStatus(`♪ kept ${raw.length} ${name} files in Downloads → put them in voices/${name}/ as 0.mp3 1.mp3 … and they ship with the site`);
   }
+  async function keepTrack() {
+    let raw = null; try { const c = localStorage.getItem(MUSIC_KEY); if (c) raw = unb64(c); } catch {}
+    if (!raw) { musStatus('♫ nothing to keep yet: no elevenlabs track has been composed'); return; }
+    const studio = /^https?:\/\/(localhost|127\.0\.0\.1):8765$/.test(location.origin);
+    if (studio) {
+      try { const r = await fetch('/keep?music=organ', { method: 'POST', body: raw }); if (!r.ok) throw new Error(await r.text()); musStatus('♫ kept the track as music/organ.mp3 — it ships with the next build'); return; }
+      catch (e) { musStatus(`♫ couldn't file it (${e.message}) — falling back to Downloads`); }
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([raw], { type: 'audio/mpeg' })); a.download = 'organ.mp3'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    musStatus('♫ kept the track in Downloads → put it in music/organ.mp3 and it ships with the site');
+  }
   function playBuffer(buf, ratio, pan, gain, when) {
     const ctx = audio.ctx, t = Math.max(ctx.currentTime, when || 0);
     const src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = ratio;
@@ -1837,6 +1849,7 @@
     try {
       let raw = null;
       if (!force && !music.buffer) { try { const c = localStorage.getItem(MUSIC_KEY); if (c) raw = unb64(c); } catch {} }
+      if (!force && !music.buffer && !raw) { try { const r = await fetch('music/organ.mp3'); if (r.ok) raw = await r.arrayBuffer(); } catch {} }   // a kept track ships with the site
       // only the recompose button composes (it costs credits): picking "elevenlabs" with no track yet just plays the organ and says so
       if (!force && !music.buffer && !raw) { music.synth = synthOrgan(out); musStatus('♫ synth organ · no elevenlabs track yet — recompose makes one' + under); return; }
       if (force) {
@@ -1963,6 +1976,7 @@
   $('voice').onchange = () => { if (audio.on) setSound(true); };
   $('style').onchange = () => { if (audio.on) { setSound(true); if (['vox', 'ensemble', 'piano', 'toy'].includes($('style').value)) loadPiece(); } };
   $('keepBtn').onclick = keepVoices;
+  $('keepTrackBtn').onclick = keepTrack;
   /* ---- ♥ voices and ♥ tracks: ElevenLabs results you want to come back to. They are audio (a track is megabytes), so they
      live in this browser's IndexedDB, not localStorage. Each entry: { id, name, kind, style, when, data: [ArrayBuffer] } ---- */
   const store = {
