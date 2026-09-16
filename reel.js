@@ -29,10 +29,11 @@ window.installReel = function (container, opts = {}) {
     const wantMic = $('rMic').checked, wantCam = $('rCam').checked;
     try { if (wantMic) rec.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false } }); } catch { rStatus('mic not available — recording without it'); }
     try { if (wantCam) { rec.cam = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 640, facingMode: 'user' } }); const v = $('camPreview'); v.srcObject = rec.cam; v.hidden = false; } } catch { rStatus('camera not available'); }
-    // mix: tab audio + mic
+    // mix: tab audio + mic, the voice sitting a little above the piece, through a gentle compressor so nothing clips
     const ctx = rec.ctx = new AudioContext(), dest = ctx.createMediaStreamDestination();
-    if (rec.screen.getAudioTracks().length) ctx.createMediaStreamSource(new MediaStream(rec.screen.getAudioTracks())).connect(dest);
-    if (rec.mic) { const g = ctx.createGain(); g.gain.value = 1.4; ctx.createMediaStreamSource(rec.mic).connect(g).connect(dest); }
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.2; comp.connect(dest);
+    if (rec.screen.getAudioTracks().length) { const t = ctx.createGain(); t.gain.value = 0.85; ctx.createMediaStreamSource(new MediaStream(rec.screen.getAudioTracks())).connect(t).connect(comp); }
+    if (rec.mic) { const g = ctx.createGain(); g.gain.value = 2.4; ctx.createMediaStreamSource(rec.mic).connect(g).connect(comp); }
     // picture: draw the captured tab into a canvas (cropped to 9:16 for a reel), with the camera as a circle
     const sv = document.createElement('video'); sv.srcObject = new MediaStream(rec.screen.getVideoTracks()); sv.muted = true; await sv.play();
     const cv = document.createElement('video'); if (rec.cam) { cv.srcObject = rec.cam; cv.muted = true; await cv.play(); }
