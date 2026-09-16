@@ -1400,7 +1400,7 @@
   }
   const fade = (g, on) => { const t = audio.ctx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.08); };
 
-  const LITE = new URLSearchParams(location.search).has('lite');   // for the web: no sample libraries, synth voices only
+  const LITE = new URLSearchParams(location.search).has('lite-never');   // for the web: no sample libraries, synth voices only
   const EMBEDDED = new URLSearchParams(location.search).has('embed') && window.parent !== window;   // inside symbiosis.html: it owns the keys e · i · r
   async function loadPiece() {
     if (piece.loaded) return;
@@ -2249,7 +2249,7 @@
       fetch('voices/meow/0.mp3', { method: 'HEAD' }).then(r => opt('voice', r.ok, 'studio voices')).catch(() => opt('voice', false));
       fetch('music/organ.mp3', { method: 'HEAD' }).then(r => opt('music', r.ok, 'studio track')).catch(() => opt('music', false));
     }
-    if (q.has('lite')) { $('instEp').checked = false; $('instToy').checked = false; $('style').value = 'meow'; }
+    if (q.has('lite-never')) { $('instEp').checked = false; $('instToy').checked = false; $('style').value = 'meow'; }
     if (q.has('clean')) {
       const h = document.createElement('div'); h.id = 'cleanHint'; h.textContent = 'click once to wake the sound · ≡ for the controls';
       main.appendChild(h);
