@@ -93,6 +93,7 @@
   <label>instruments <input type="range" id="pMusic" min="0" max="100" value="65"></label>
   <label>tempo <input type="range" id="pBpm" min="30" max="160" value="72"> <span id="pBpmV">72</span></label>
   <button id="pSeed">new piece</button>
+  <button id="pExport" title="save a picture of this moment (e)">export png</button>
   <h4>record a reel</h4>
   <div id="reelBox"></div>
   <h4>explore other worlds</h4>
@@ -192,6 +193,42 @@
   document.getElementById('pMusic').oninput = e => D() && D().set('musicVol', +e.target.value);
   document.getElementById('pBpm').oninput = e => { document.getElementById('pBpmV').textContent = e.target.value; D() && D().set('bpm', +e.target.value); };
   document.getElementById('pSeed').onclick = () => D() && D().newSeed();
+  // ── export png: the sky and the forest each send a fresh frame; they're composited with the page's own masks ──
+  const snapshot = win => new Promise(res => {
+    const id = Math.random().toString(36).slice(2);
+    const on = e => { if (e.data && e.data.type === 'snapshot' && e.data.id === id) { removeEventListener('message', on); res(e.data.url); } };
+    addEventListener('message', on); win.postMessage({ type: 'snapshot', id }, '*');
+    setTimeout(() => { removeEventListener('message', on); res(null); }, 4000);
+  });
+  const loadImg = url => new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = url; });
+  async function exportPng() {
+    const W = innerWidth, H = innerHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    const c = document.createElement('canvas'); c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+    const g = c.getContext('2d'); g.scale(dpr, dpr);
+    const bg = g.createLinearGradient(0, 0, 0, H);   // the same sunset as the page's background
+    for (const [o, col] of [[0, '#3b2f6e'], [.08, '#6b56a4'], [.16, '#a984c0'], [.23, '#d99bba'], [.3, '#f4a9a6'], [.36, '#fbe0da'], [.43, '#fce8e3'], [.52, '#fbe0da'], [.66, '#f6c6b8'], [.84, '#e9aeab'], [1, '#d99aa3']]) bg.addColorStop(o, col);
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    const sky = document.getElementById('sky'), ground = document.getElementById('ground');
+    const [skyUrl, groundUrl] = await Promise.all([snapshot(sky.contentWindow), snapshot(ground.contentWindow)]);
+    // a layer: the frame's picture, faded by the same mask gradient the css uses
+    const layer = async (url, el, mask) => {
+      const img = url && await loadImg(url); if (!img) return;
+      const r = el.getBoundingClientRect(), lc = document.createElement('canvas'); lc.width = Math.round(r.width * dpr); lc.height = Math.round(r.height * dpr);
+      const lg = lc.getContext('2d'); lg.scale(dpr, dpr); lg.drawImage(img, 0, 0, r.width, r.height);
+      lg.globalCompositeOperation = 'destination-in';
+      const m = lg.createLinearGradient(0, 0, 0, r.height); for (const [o, a] of mask) m.addColorStop(o, `rgba(0,0,0,${a})`);
+      lg.fillStyle = m; lg.fillRect(0, 0, r.width, r.height);
+      g.drawImage(lc, r.left, r.top, r.width, r.height);
+    };
+    await layer(groundUrl, ground, [[0, 0], [.05, .15], [.11, .45], [.18, .8], [.26, 1]]);
+    await layer(skyUrl, sky, [[0, 1], [.6, 1], [.68, .97], [.76, .88], [.84, .7], [.92, .42], [.97, .15], [1, 0]]);
+    const cr = cl.getBoundingClientRect(); g.drawImage(cl, cr.left, cr.top, cr.width, cr.height);   // the cloud band
+    const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = `duality-symbiosis-${Date.now()}.png`; a.click();
+  }
+  document.getElementById('pExport').onclick = exportPng;
+  // keys pressed while a frame has focus arrive here as messages and are treated as if pressed on this page
+  addEventListener('message', e => { if (e.data && e.data.type === 'key') window.dispatchEvent(new KeyboardEvent('keydown', { key: e.data.key })); });
+  addEventListener('keydown', e => { if (e.key === 'e' && !e.metaKey && !e.ctrlKey && !['INPUT', 'SELECT'].includes(e.target.tagName)) exportPng(); });
 
   // ── record a reel (reel.js): the controls go at the end of the panel ──
   installReel(document.getElementById('reelBox'));

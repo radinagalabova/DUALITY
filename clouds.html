@@ -1382,6 +1382,7 @@
   const fade = (g, on) => { const t = audio.ctx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(on ? 1 : 0, t + 0.08); };
 
   const LITE = new URLSearchParams(location.search).has('lite');   // for the web: no sample libraries, synth voices only
+  const EMBEDDED = new URLSearchParams(location.search).has('embed') && window.parent !== window;   // inside symbiosis.html: it owns the keys e · i · r
   async function loadPiece() {
     if (piece.loaded) return;
     if (piece.loading) return piece.loading;   // a second caller waits for the load already under way (so the tape bed is never skipped)
@@ -2116,9 +2117,10 @@
     if (e.code === 'Space') { e.preventDefault(); playMode() === 'piece' ? newSeed() : isConduct() ? nextFormation() : cue(); }
     else if (e.key === 'n') isConduct() ? nextFormation() : nextPhase();
     else if (e.key === 'p') setFlying(!flying);
-    else if (e.key === 'e') exportPng();
+    else if (e.key === 'e') { if (EMBEDDED) parent.postMessage({ type: 'key', key: 'e' }, '*'); else exportPng(); }
+    else if (EMBEDDED && (e.key === 'i' || e.key === 'r')) parent.postMessage({ type: 'key', key: e.key }, '*');
   });
-  installReel($('reelGroup'), { compact: true });   // record a reel of the sky (r), see reel.js
+  if (!EMBEDDED) installReel($('reelGroup'), { compact: true });   // record a reel of the sky (r), see reel.js — symbiosis has its own
 
   // default asset: the pose frames in this folder (works when served over http; under file:// drop them in — multi-select works)
   // ?me=1 : the portrait made in angelme.html becomes the figure instead
@@ -2167,6 +2169,12 @@
     if (q.has('clean') && q.has('me')) history.replaceState(null, '', location.pathname + '?clean=1&me=1');
   }
 
+  // symbiosis.html asks for a picture of the sky (its export png): a fresh frame, read back at once
+  window.addEventListener('message', e => {
+    if (!e.data || e.data.type !== 'snapshot' || !renderer) return;
+    renderer.render(scene, camera);
+    e.source.postMessage({ type: 'snapshot', id: e.data.id, url: renderer.domElement.toDataURL('image/png') }, '*');
+  });
   // controls for symbiosis.html (same origin): toggles, timbre, tempo, volume
   window.duality = {
     set(id, value) { const el = $(id); if (!el) return; if (el.type === 'checkbox') el.checked = !!value; else el.value = value; el.dispatchEvent(new Event(el.type === 'range' ? 'input' : 'change')); },
