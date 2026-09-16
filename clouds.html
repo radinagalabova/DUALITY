@@ -149,15 +149,15 @@
     transition: background-color 4s linear, opacity 2s;
   }
   main.keyed::before { opacity: .12; }
-  /* film grain: an SVG noise tile, jittered so it lives */
+  /* film grain: a noise tile, jittered so it lives */
   main::after {
     content: "";
     position: absolute;
     inset: -50%;
     z-index: 2;
     pointer-events: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 320px 320px;
+    background-image: var(--grain);   /* a grey noise tile drawn on a canvas at start (see grainTile) — an SVG turbulence filter paints rainbow speckles on iOS */
+    background-size: 256px 256px;
     opacity: .17;
     mix-blend-mode: overlay;
     animation: grain .7s steps(5) infinite;
@@ -495,6 +495,10 @@
 
   /* ---- scene ---- */
   const main = $('main'), drop = $('drop');
+  // the film grain tile: 256 px of grey noise, drawn once (the same in every browser, unlike an SVG filter)
+  { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), id = g.createImageData(256, 256), d = id.data;
+    for (let i = 0; i < d.length; i += 4) { const v = 96 + Math.random() * 64; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+    g.putImageData(id, 0, 0); document.documentElement.style.setProperty('--grain', `url(${c.toDataURL()})`); }
   let renderer, scene, camera, cloudMat, ridge, bank, meMode = false;
   const fogUniforms = {
     fogColor: { value: new THREE.Color(SKIES.sunset.fog) }, fogNear: { value: -100 }, fogFar: { value: 3000 }
