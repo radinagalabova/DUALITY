@@ -217,6 +217,7 @@
   body.embed:not(.clean) #radams { display: none; }
   #linkGroup { display: contents; }
   body.clean .eleven { display: none !important; }   /* the public page never asks anyone for an API key */
+  body.clean .studio { display: none !important; }   /* choreography controls: the piece drives the choir on the public page */
   body.clean #linkGroup, body.clean #lnkStatus { display: none; }   /* the sky alone has nothing to link to */   /* inside symbiosis.html the world carries the stamp */
 </style>
 </head>
@@ -239,7 +240,7 @@
     </select>
   </label>
 
-  <label>routine
+  <label class="studio">routine
     <select id="routine">
       <option value="auto">auto</option>
       <option value="arc">arc · wave</option>
@@ -274,7 +275,7 @@
       <option value="auto">auto routine</option>
     </select>
   </label>
-  <label><input type="checkbox" id="auto" checked> auto-cue</label>
+  <label class="studio"><input type="checkbox" id="auto" checked> auto-cue</label>
   <span class="sep"></span>
   <label>seed <input type="number" id="pieceSeed" min="1" step="1" value="1"></label>
   <button id="newSeedBtn" title="a new piece">new</button>
@@ -287,7 +288,7 @@
   <label><input type="checkbox" id="parallax" checked> parallax</label>
   <label hidden><input type="checkbox" id="key"> key bg <input type="number" id="keyTol" min="0" max="128" value="24"></label>   <!-- chroma-key for dropped frames: kept for the code, off the board -->
 
-  <button id="cueBtn" disabled>cue</button>
+  <button id="cueBtn" class="studio" disabled>cue</button>
   <button id="pauseBtn" class="on">flying</button>
   <button id="exportBtn">export png</button>
 
